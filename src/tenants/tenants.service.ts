@@ -918,20 +918,20 @@ export class TenantsService {
 
             reply.send(updateResult);
         } catch (error) {
-            const fastify = require('fastify');//Below only works with this. Hence this weird entry here
+            /*const fastify = require('fastify');//Below only works with this. Hence this weird entry here
             if (error instanceof fastify.multipartErrors.FilesLimitError) {
                 reply.send(new HttpException({
                     status: HttpStatus.BAD_REQUEST,
                     error: `There was a problem uploading logo. Keep upload to size limit of ${LOGO_FILE_SIZE_LIMIT} bytes`,
                 }, HttpStatus.BAD_REQUEST))
-            } else {
+            } else {*/
                 reply.send(
                     new HttpException({
                         status: HttpStatus.INTERNAL_SERVER_ERROR,
                         error: `There was a problem uploading logo: ${error.message}`,
                     }, HttpStatus.INTERNAL_SERVER_ERROR)
                 )
-            }
+            //}
         }
     }
 
