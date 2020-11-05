@@ -39,3 +39,6 @@ thirdparty.env
 
 /src/clients_dev/user-react-web-client/build
 /src/clients_dev/user-react-web-client/node_modules
+
+/uploads/logos/*
+/uploads/photos/*
