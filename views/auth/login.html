@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block body %}
+{%include "navigation.html"%}
+<section class="section" style="flex: 1;">
+    <div class="container">
+        <h3 class="title is-3">{{title}}</h3>
+    </div>
+
+    <section class="section">
+        <!--The login form is loaded from /login route. The loginUrl below is another named e.g. process-login 
+        If login fails, the user will be redirected on the server side to /login for the form. If login succeeds,
+        the user will be directed to the postLogin Url. The loginUrl sent from server in principle should havd
+        a query for next e.g. loginUrl?next=/user-management
+        The process-login success with pass token via cookie to the postLogin URL. 
+        See https://wanago.io/2020/05/25/api-nestjs-authenticating-users-bcrypt-passport-jwt-cookies/
+        Note that fastify reply allows the setting of cookies reply.setCookie('session', 'value', { secure: false })
+        
+        -->
+        <form id="loginForm" action="{{loginUrl}}" method="POST">
+            <fieldset id="loginFormFieldSet" class="container">
+                <div class="field">
+                    <label class="label">Email:</label>
+                    <div class="control has-icons-right">
+                        <input class="input" id="email" name="email" type="email" placeholder="Email" required>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Password:</label>
+                    <div class="control has-icons-right">
+                        <input class="input" id="password" name="password" type="password" placeholder="Password"
+                            required>
+                        <span class="is-clickable-icon icon  is-small is-right toggle-password-view">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <input type="checkbox" checked="checked" name="remember" /> Remember me
+                    </div>
+                </div>
+                <div class="field is-grouped">
+                    <div class="control">
+                        <button type="submit" onclick="alert('Yet to be implemented'); return false" id="submitLoginForm" class="button is-link">Submit</button>
+                    </div>
+                    <div class="control">
+                        <button type="reset" class="button is-light">Clear</button>
+                    </div>
+                    <div class="control">
+                        <span id="forgotPassword" type="submit" class="button is-text"><a href="#">Forgot password?</a></span>
+                    </div>
+                </div>
+                
+            </fieldset>
+            
+            
+        </form>
+        <section class="section">
+            <div class="container">
+                <div id="notification" class="notification container is-hidden animated slideInUp">
+                    <button class="delete"></button>
+                    <div id="notificationMessage">
+                        {{notificationMessage}}
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        
+
+        <script>
+            const forgotPassword = document.getElementById('forgotPassword');
+
+            forgotPassword.addEventListener('click', (event) => {
+                event.preventDefault();
+                
+                const email = document.getElementById('email');
+
+                if (email.value == '') {
+                    email.reportValidity();
+                    return false;
+                }
+
+                //Prepare to send to the backend URL asynchronously using fetch()
+                const URL = '{{forgotPasswordUrl}}';
+
+                const init = {
+                    method: 'Post',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    //credentials: 'same-origin',
+                    body: email.value
+                }
+                //call fetch to talk with the backend asynchronously
+                //start the button spinner
+                document.getElementById("forgotPassword").classList.add("is-loading");
+
+                fetch(URL, init)
+                    .then(response => response.json())
+                    .then(response => {
+                        //remove spinner class
+                        document.getElementById("forgotPassword").classList.remove("is-loading");
+                        //set notification
+                        document.getElementById("notificationMessage").innerHTML = response.notificationMessage;
+                        //add notification color class sent
+                        document.getElementById("notification").classList.add(response.notificationClass);
+                        //remove is-hidden from notificationWrapper
+                        document.getElementById("notification").classList.remove("is-hidden");
+                        
+                    })
+                    .catch(error => {
+                        //remove spinner class
+                        document.getElementById("forgotPassword").classList.remove("is-loading");
+
+                        document.getElementById("notificationMessage").innerHTML = response.notificationMessage;
+                        //add notification color class sent
+                        document.getElementById("notification").classList.add(response.notificationClass);
+                        //remove is-hidden from notificationWrapper
+                        document.getElementById("notification").classList.remove("is-hidden");
+                        
+                    });
+            });
+
+        </script>
+
+    </section>
+
+</section>
+{%include "footer.html"%}
+{% endblock %}
