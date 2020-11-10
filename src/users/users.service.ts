@@ -939,6 +939,7 @@ export class UsersService {
         try {
             return await this.userRepository.createQueryBuilder("user")
                 .where("user.primaryEmailAddress = :primaryEmailAddress", { primaryEmailAddress })
+                //.addSelect('passwordhash') //we need to have passwordHash included as this function call will likely be for authentication reasons
                 .getOne();
         } catch (error) {
             throw new HttpException({

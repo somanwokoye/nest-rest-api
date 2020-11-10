@@ -94,7 +94,7 @@ export class User extends BaseAbstractEntity {
     @Column({ nullable: true })
     passwordSalt: string;
 
-    @Column({select: false}) //don't select password whenever user is called. See https://typeorm.io/#/select-query-builder/hidden-columns
+    @Column({select: true}) //don't select password whenever user is called. See https://typeorm.io/#/select-query-builder/hidden-columns
     passwordHash: string;
 
     //set to true if password change is required

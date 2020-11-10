@@ -8,7 +8,7 @@ import { Tenant } from "./tenant.entity";
  * This entity is a joiner for tenant and user (account officers). For each join, there are roles associated
  */
 @Entity()
-@Index(["tenant", "user"], { unique: true })
+@Index(["tenant", "user"], { unique: true }) //a user should not appear more than once for a given tenant
 export class TenantAccountOfficer extends BaseAbstractEntity{
 
     @ManyToOne(type => Tenant, tenant => tenant.tenantAccountOfficers)
