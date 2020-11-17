@@ -19,40 +19,89 @@
     <!--Notice the id="bookExampleMenu" here. This makes this div's menuitems the data-target for the navbar-burger above-->
     <div id="bookExampleMenu" class="navbar-menu">
       <!--navbar-start below is for a set of menu items that are left oriented-->
-      <div class="navbar-start">
+      {% if apiVersion %}
 
-        <a class="navbar-item {{'navbar-item-active' if TenantsActive else ''}}"
-          {{'' if TenantsActive else 'href=/' + apiVersion + '/tenants/web' }}>
-          Tenants Admin
-        </a>
-        <div class="navbar-item has-dropdown is-hoverable">
-          <a class="navbar-link">
-            General Admin
+        <div class="navbar-start">
+          <a class="navbar-item {{'navbar-item-active' if TenantsActive else ''}}"
+            {{'' if TenantsActive else 'href=/' + apiVersion + '/tenants/web' }}>
+            Tenants Admin
           </a>
-          <div class="navbar-dropdown is-black animated fadeIn faster">
-            <a class="navbar-item " {{'' if UsersActive else 'href=/' + apiVersion + '/users/web' }}>
-              Manage users ...
+          <div class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              General Admin
             </a>
-            <a class="navbar-item " {{'' if UsersActive else 'href=/' + apiVersion + '/users/web/role-admin' }}>
-              Manage roles ...
+            <div class="navbar-dropdown is-black animated fadeIn faster">
+              <a class="navbar-item " {{'' if UsersActive else 'href=/' + apiVersion + '/users/web' }}>
+                Manage users ...
+              </a>
+              <a class="navbar-item " {{'' if UsersActive else 'href=/' + apiVersion + '/users/web/role-admin' }}>
+                Manage roles ...
+              </a>
+              <a class="navbar-item">
+                Other Admin settings ...
+              </a>
+            </div>
+          </div>
+        </div>
+        <!--navbar-end below is for a set of menu items that are right oriented-->
+        <div class="navbar-end">
+          <div class="buttons">
+            <div id="welcome-message">
+            </div>
+            <a id="sign-in" class="button is-primary is-hidden" {{'href=/' + apiVersion + '/auth/login?' + 'next=' + currentUrlSlug }}>
+              Sign in
             </a>
-            <a class="navbar-item">
-              Other Admin settings ...
+            <a id="sign-out" class="button is-warning is-hidden" {{'href=/' + apiVersion + '/auth/logout?' + 'next=' + currentUrlSlug }}>
+              Sign out
+            </a>
+            <a class="button is-info" id="toggle-theme">
+              Toggle Theme
             </a>
           </div>
         </div>
-      </div>
-      <!--navbar-end below is for a set of menu items that are right oriented-->
-      <div class="navbar-end">
-        <div class="buttons">
-          <a class="button is-primary" {{'href=/' + apiVersion + '/auth/login' }}>
-            Log in
+
+      {% else %}
+
+        <div class="navbar-start">
+          <a class="navbar-item {{'navbar-item-active' if TenantsActive else ''}}"
+            {{'' if TenantsActive else 'href=/tenants/web' }}>
+            Tenants Admin
           </a>
-          <a class="button is-info" id="toggle-theme">
-            Toggle Theme
-          </a>
+          <div class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              General Admin
+            </a>
+            <div class="navbar-dropdown is-black animated fadeIn faster">
+              <a class="navbar-item " {{'' if UsersActive else 'href=/users/web' }}>
+                Manage users ...
+              </a>
+              <a class="navbar-item " {{'' if UsersActive else 'href=/users/web/role-admin' }}>
+                Manage roles ...
+              </a>
+              <a class="navbar-item">
+                Other Admin settings ...
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
+        <!--navbar-end below is for a set of menu items that are right oriented-->
+        <div class="navbar-end">
+          <div class="buttons">
+            <div id="welcome-message">
+            </div>
+            <a id="sign-in" class="button is-primary is-hidden" {{'href=/auth/login?' + 'next=' + currentUrlSlug }}>
+              Sign in
+            </a>
+            <a id="sign-out" class="button is-warning is-hidden" {{'href=/auth/logout?' + 'next=' + currentUrlSlug }}>
+              Sign out
+            </a>
+            <a class="button is-info" id="toggle-theme">
+              Toggle Theme
+            </a>
+          </div>
+        </div>
+
+      {% endif %}
     </div>
   </div>
 </nav>
@@ -132,4 +181,87 @@
     }
   })
 
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    //alert('document content loaded event')
+    //checkout the token previously placed in localStorage
+    const accessToken = localStorage.getItem('accessToken')
+    const refreshToken = localStorage.getItem('refreshToken')
+
+    //decode the token if it exists
+    if (accessToken) {
+      //alert(accessToken)
+      const decodedAccessToken = jwt_decode(accessToken);//I ran npm install jwt-decode, copied the js file from the build folder in node_modules to my public folder and added the link to head.html
+
+      //need to know if token has expired by comparing exp with now. Harmonize both to seconds as token exp is in seconds and getTime is in ms
+      const now = (new Date().getTime()) / 1000; //the 1000 is to convert from millisec to sec
+      const expirationTime = parseInt(decodedAccessToken.exp); //exp is in seconds
+
+      //if not expired, act
+      if (expirationTime > now) {
+        //alert('token has not expired')
+        //token has not expired
+        //toggle Sign-in and Sign-out button
+        document.getElementById("sign-in").classList.add("is-hidden");
+        document.getElementById("sign-out").classList.remove("is-hidden");
+        //toggle Welcome firstName message.
+        document.getElementById("welcome-message").innerHTML = `Welcome ${decodedAccessToken.sub.firstName}!&nbsp;`;
+      } else {
+        //alert('token has expired')
+        document.getElementById("sign-in").classList.remove("is-hidden");
+        document.getElementById("sign-out").classList.add("is-hidden");
+        //toggle Welcome firstName message.
+        document.getElementById("welcome-message").innerHTML = `Welcome Guest!&nbsp;`
+      }
+    } else {
+      document.getElementById("sign-in").classList.remove("is-hidden");
+      document.getElementById("sign-out").classList.add("is-hidden");
+      //toggle Welcome firstName message.
+      document.getElementById("welcome-message").innerHTML = `Welcome Guest!&nbsp;`
+    }
+  });
+</script>
+
+<script>
+  /* section on signOut*/
+  const signOut = document.getElementById('sign-out');
+
+  signOut.addEventListener('click', (event) => {
+    event.preventDefault();
+
+    const accessToken = localStorage.getItem('accessToken');
+
+    //clear localStorage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+
+    const init = {
+      method: 'Get',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json'
+      }
+    }
+    //call fetch to talk with the backend asynchronously
+    //start the button spinner
+    signOut.classList.add("is-loading");
+
+    const apiVersion = '{{apiVersion}}'
+    const URL = apiVersion!=''? '/{{apiVersion}}/auth/logout?next={{currentUrlSlug}}': '/auth/logout?next={{currentUrlSlug}}'
+
+    fetch(URL, init)
+      .then(response => response.json())
+      .then(data => {
+        //remove spinner class
+        signOut.classList.remove("is-loading");
+        //the data returned constains where to redirect to
+        //alert(JSON.stringify(data))
+        window.location.replace(data.redirectUrl)
+      })
+      .catch(error => {
+        alert (error)
+        signOut.classList.remove("is-loading");
+      });
+  });
 </script>

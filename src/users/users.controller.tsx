@@ -149,7 +149,7 @@ export class UsersController {
         const res = reply.raw;
 
         const beforeStream = renderEngine().render('users/before-react-stream.fragment.html',
-            { title: 'User Management', UserAdminctive: true, apiVersion: API_VERSION!==null? `${API_VERSION}`: '' })
+            { title: 'User Management', UserAdminctive: true, apiVersion: API_VERSION!==null? `${API_VERSION}`: '' , currentUrlSlug: API_VERSION!==null?`/${API_VERSION}/users/web`: '/users/web'})
 
         const afterStream = renderEngine().render('users/after-react-stream.fragment.html')
 

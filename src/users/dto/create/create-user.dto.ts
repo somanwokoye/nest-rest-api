@@ -25,17 +25,17 @@ export class CreateUserDto{
     readonly firstName: string;
 
     @ApiProperty({ required: false})
-    readonly middleName: string;
+    readonly middleName?: string;
 
     @ApiProperty()
     @IsNotEmpty()
     readonly lastName: string;
 
     @ApiProperty({ required: false})
-    readonly commonName: string;
+    readonly commonName?: string;
 
     @ApiProperty({ required: false})
-    readonly homeAddress: string;
+    readonly homeAddress?: string;
 
     @ApiProperty({ enum: Gender})
     @IsNotEmpty()
@@ -46,22 +46,22 @@ export class CreateUserDto{
     readonly dateOfBirth: Date;
 
     @ApiProperty({ required: false})
-    readonly nationality: string;
+    readonly nationality?: string;
 
     @ApiProperty({ required: false})
-    readonly stateOfOrigin: string;
+    readonly stateOfOrigin?: string;
 
     @ApiProperty({ required: false})
-    readonly zip: string;
+    readonly zip?: string;
 
     @ApiProperty({ required: false})
-    readonly photo: string; 
+    readonly photo?: string; 
 
     @ApiProperty({ required: false})
-    readonly photoMimeType: string;
+    readonly photoMimeType?: string;
 
     @ApiProperty({ required: false})
-    readonly isActive: boolean;
+    readonly isActive?: boolean;
 
     @ApiProperty()
     @IsNotEmpty()
@@ -70,23 +70,23 @@ export class CreateUserDto{
 
     @ApiProperty({ required: false})
     @IsEmail()
-    readonly backupEmailAddress: string;
+    readonly backupEmailAddress?: string;
 
     @ApiProperty({ required: false})
-    readonly phone: PhoneDto;
+    readonly phone?: PhoneDto;
 
     @ApiProperty({ required: false})
-    readonly isPrimaryEmailAddressVerified: boolean;
+    readonly isPrimaryEmailAddressVerified?: boolean;
 
     @ApiProperty({ required: false})
-    readonly passwordSalt: string;
+    readonly passwordSalt?: string;
 
     @ApiProperty()
     @IsNotEmpty()
     passwordHash: string; //not readonly because it will be replaced by hash in the insertusers function
 
     @ApiProperty({ required: false})
-    readonly isPasswordChangeRequired: boolean;
+    readonly isPasswordChangeRequired?: boolean;
 
 }
 

@@ -17,7 +17,7 @@ import { UpdateUserDto } from './dto/update/update-user.dto';
 import { User } from './models/user.entity';
 import * as bcrypt from 'bcrypt';
 //five imports below are for file upload handling
-import { Reply, Request } from '../global/custom.interfaces';
+import { Gender, Reply, Request } from '../global/custom.interfaces';
 import util from 'util'; //for uploaded file streaming to file
 import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
@@ -26,6 +26,8 @@ import { randomBytes } from 'crypto';
 import { API_VERSION, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, smtpTransport, smtpTransportGmail, TenantTeamRole, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
+import { FacebookProfileDto } from 'src/auth/dtos/facebook-profile.dto';
+import * as randomstring from 'randomstring';
 
 @Injectable()
 export class UsersService {
@@ -70,6 +72,58 @@ export class UsersService {
                 }, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
+    }
+
+    async createFromFacebookProfile(facebookProfileDto: FacebookProfileDto): Promise<User> {
+
+        const createUserDto: CreateUserDto = {
+
+            landlord: false,
+            firstName: facebookProfileDto.name.givenName,
+            lastName: facebookProfileDto.name.familyName,
+            commonName: facebookProfileDto.displayName,
+            primaryEmailAddress: facebookProfileDto.emails[0].value,
+            isPrimaryEmailAddressVerified: true,
+            passwordHash: randomstring.generate(),
+            isPasswordChangeRequired: true,
+            gender: facebookProfileDto.gender == 'male' ? Gender.M : Gender.F,
+            dateOfBirth: new Date()
+
+        }
+
+        //create the user
+        try {
+            const newUser = this.userRepository.create(createUserDto);
+            //hash the password in dto
+            await bcrypt.hash(newUser.passwordHash, 10).then((hash: string) => {
+                newUser.passwordHash = hash
+            })
+            
+            let user = await this.userRepository.save(newUser);
+
+            //add the relationship with facebookProfile before returning
+            user = await this.addFacebookProfile(user.id, facebookProfileDto);
+
+            //no need to call confirm email as Facebook has done that for us.
+            //TODO: But we need to send mail to welcome the user and also initiate password change request
+            return user;
+        } catch (error) {
+            if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+                //this would imply that the user with the email address already exists.
+                throw new HttpException({
+                    status: HttpStatus.BAD_REQUEST,
+                    error: `There was a problem with user creation: : ${error.message}`,
+                }, HttpStatus.BAD_REQUEST)
+            } else {
+                throw new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem with user creation: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
+
+
     }
 
     //insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
@@ -625,7 +679,7 @@ export class UsersService {
 
                 if (tenant) {
                     //create a new tenant team with roles sent in Dto
-                    const newTenantTeam = this.tenantTeamRepository.create({ roles: roles, tenantUniqueName: uniqueName, tenantUniqueId: tenant.id});
+                    const newTenantTeam = this.tenantTeamRepository.create({ roles: roles, tenantUniqueName: uniqueName, tenantUniqueId: tenant.id });
                     const tenantTeam = await entityManager.save(newTenantTeam);
 
                     //Associate the new tenantTeam with both user and tenant
@@ -879,12 +933,12 @@ export class UsersService {
                 }, HttpStatus.BAD_REQUEST))
                 */
             //} else {
-                reply.send(
-                    new HttpException({
-                        status: HttpStatus.INTERNAL_SERVER_ERROR,
-                        error: `There was a problem uploading photo: ${error.message}`,
-                    }, HttpStatus.INTERNAL_SERVER_ERROR)
-                )
+            reply.send(
+                new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem uploading photo: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR)
+            )
             //}
         }
     }
@@ -938,8 +992,9 @@ export class UsersService {
     async findByPrimaryEmailAddress(primaryEmailAddress: string): Promise<User> {
         try {
             return await this.userRepository.createQueryBuilder("user")
+                .leftJoinAndSelect("user.roles", "roles")
+                .addSelect("user.passwordHash")
                 .where("user.primaryEmailAddress = :primaryEmailAddress", { primaryEmailAddress })
-                //.addSelect('passwordhash') //we need to have passwordHash included as this function call will likely be for authentication reasons
                 .getOne();
         } catch (error) {
             throw new HttpException({
@@ -1003,6 +1058,38 @@ export class UsersService {
             }, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    async findById(id: number): Promise<User> {
+        try {
+            return await this.userRepository.createQueryBuilder("user")
+                .addSelect("user.refreshTokenHash")
+                .leftJoinAndSelect("user.roles", "roles")
+                .where("user.id = :id", { id })
+                .getOne();
+        } catch (error) {
+            throw new HttpException({
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+                error: `There was a problem with getting user: ${error.message}`,
+            }, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    async findByFacebookId(id: number): Promise<User> {
+        try {
+            return await this.userRepository.createQueryBuilder("user")
+                .addSelect("user.refreshTokenHash")
+                .leftJoinAndSelect("user.roles", "roles")
+                .leftJoinAndSelect("user.facebookProfile", "facebookProfile")
+                .where("facebookProfile.facebookId = :id", { id })
+                .getOne();
+        } catch (error) {
+            throw new HttpException({
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+                error: `There was a problem with getting user: ${error.message}`,
+            }, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
 
     /**
@@ -1294,5 +1381,44 @@ export class UsersService {
         } catch (error) {
             reply.view('users/confirm-email-feedback.html', { title: 'SGVI-1 Mini CMS - Confirm Email', notificationClass: "is-danger", notificationMessage: "Problem confirming email!" });
         }
+    }
+
+    /**
+     * Invoked to setRefreshTokenHash after successful login.
+     * @param refreshToken 
+     * @param userId 
+     */
+    async setRefreshTokenHash(refreshToken: string, userId: number) {
+        const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+        await this.userRepository.update(userId, {
+            refreshTokenHash
+        });
+    }
+
+    async addFacebookProfile(userId: number, facebookProfile: FacebookProfileDto): Promise<User> {
+
+        try {
+            await this.userRepository.createQueryBuilder()
+                .relation(User, "facebookProfile")
+                .of(userId)
+                .set(facebookProfile)
+
+            //return the user modified
+            return await this.userRepository.findOne(userId, { relations: ['facebookProfile', 'roles'] });
+
+        } catch (error) {
+            if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+                throw new HttpException({
+                    status: HttpStatus.BAD_REQUEST,
+                    error: `There was a problem adding facebookProfile to user: ${error.message}`,
+                }, HttpStatus.BAD_REQUEST)
+            } else {
+                throw new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem with adding facebookProfile to user: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
     }
 }

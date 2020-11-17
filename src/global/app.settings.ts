@@ -42,7 +42,7 @@ const nodemailerOptionsGmail = {
     auth: {
         user: process.env.SMTPUSER,
         pass: process.env.SMTPPWORD
-    } 
+    }
 }
 
 export const smtpTransportGmail: Mail = nodemailer.createTransport(nodemailerOptionsGmail);
@@ -90,4 +90,35 @@ export enum TenantAccountOfficerRole {
     T = "tech-support"
 }
 
+export enum LandLordRoles { //better use this for creating roles, so as to ensure that the names are always the same
+    Admin = 'admin_landlord',
+    SuperAdmin = 'superadmin_landlord',
+    User = 'user_landlord'
+}
+
+export enum TenantRoles { //better use this for creating roles, so as to ensure that the names are always the same
+    Admin = 'admin',
+    SuperAdmin = 'superadmin',
+    User = 'user'
+}
+
 export const PROTOCOL: "https" | "http" = "http";
+
+
+//For JWT
+export const jwtConstants = {
+    SECRET: process.env.SECRET_KEY,
+    SECRET_KEY_EXPIRATION: parseInt(process.env.SECRET_KEY_EXPIRATION),//integer value is read as seconds. string value with no unit specified, is read as millisecs. See https://www.npmjs.com/package/jsonwebtoken for units
+    REFRESH_SECRET: process.env.REFRESH_SECRET,
+    REFRESH_SECRET_KEY_EXPIRATION: process.env.REFRESH_SECRET_KEY_EXPIRATION
+
+};
+
+export const fbConstants = {
+    APP_ID: process.env.APP_ID,
+    APP_SECRET: process.env.APP_SECRET,
+    CALLBACK_URL: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/facebook/redirect`: `http://localhost:3003/auth/facebook/redirect`,
+    SCOPE:'email, user_gender, user_birthday, ', //see https://developers.facebook.com/docs/permissions/reference for possibilities
+    PROFILE_FIELDS:['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
+    CREATE_USER_IF_NOT_EXISTS:  true
+}

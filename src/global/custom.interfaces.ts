@@ -7,7 +7,7 @@ export interface Reply extends FastifyReply{
 }
 
 export interface Request extends FastifyRequest{
-  user: User; //we need this for request object to contain our authenticated user
+  user: User //we need this for Typescript to recognize the presence of user in our request object to be sent to login.
 }
 
 export type TenantsWithCount = {
@@ -25,3 +25,15 @@ export enum TenantStatus {
   S = "suspended",
   O = "owing"
 }
+
+export interface AuthTokenPayload {
+  username: string;
+  sub: {
+    id: number ,
+    firstName: string,
+    lastName: string,
+    landlord: boolean,
+    roles: string[]
+  }
+}
+

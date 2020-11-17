@@ -18,72 +18,73 @@ class PhoneDto {
 export class UpdateUserDto {
 
     @ApiProperty()
-    @IsNotEmpty()
-    readonly id: number
+    readonly id?: number
 
     @ApiProperty({ required: false })
-    readonly landlord: boolean;
+    readonly landlord?: boolean;
 
     @ApiProperty({ required: false })
-    readonly firstName: string;
+    readonly firstName?: string;
 
     @ApiProperty({ required: false })
-    readonly middleName: string;
+    readonly middleName?: string;
 
     @ApiProperty({ required: false })
-    readonly lastName: string;
+    readonly lastName?: string;
 
     @ApiProperty({ required: false })
-    readonly commonName: string;
+    readonly commonName?: string;
 
     @ApiProperty({ required: false })
-    readonly homeAddress: string;
+    readonly homeAddress?: string;
 
     @ApiProperty({ required: false })
-    readonly gender: Gender;
+    readonly gender?: Gender;
 
     @ApiProperty({ required: false })
-    readonly dateOfBirth: Date;
+    readonly dateOfBirth?: Date;
 
     @ApiProperty({ required: false })
-    readonly nationality: string;
+    readonly nationality?: string;
 
     @ApiProperty({ required: false })
-    readonly stateOfOrigin: string;
+    readonly stateOfOrigin?: string;
 
     @ApiProperty({ required: false })
-    readonly zip: string;
+    readonly zip?: string;
 
     @ApiProperty({ required: false })
-    readonly photo: string;
+    readonly photo?: string;
 
     @ApiProperty({ required: false })
-    readonly photoMimeType: string;
+    readonly photoMimeType?: string;
 
     @ApiProperty({ required: false })
-    readonly isActive: boolean;
-
-    @ApiProperty({ required: false })
-    @IsEmail()
-    readonly primaryEmailAddress: string;
+    readonly isActive?: boolean;
 
     @ApiProperty({ required: false })
     @IsEmail()
-    readonly backupEmailAddress: string;
+    readonly primaryEmailAddress?: string;
 
     @ApiProperty({ required: false })
-    readonly phone: PhoneDto;
+    @IsEmail()
+    readonly backupEmailAddress?: string;
 
     @ApiProperty({ required: false })
-    readonly isPrimaryEmailAddressVerified: boolean;
-
-    readonly passwordSalt: string;
+    readonly phone?: PhoneDto;
 
     @ApiProperty({ required: false })
-    passwordHash: string; //not readonly because it will be replaced by hash in the insertusers function
+    readonly isPrimaryEmailAddressVerified?: boolean;
+
+    readonly passwordSalt?: string;
 
     @ApiProperty({ required: false })
-    readonly isPasswordChangeRequired: boolean;
+    passwordHash?: string; //not readonly because it will be replaced by hash in the insertusers function
+
+    @ApiProperty({ required: false })
+    readonly isPasswordChangeRequired?: boolean;
+
+    readonly refreshTokenHash?: string
 
 
 }

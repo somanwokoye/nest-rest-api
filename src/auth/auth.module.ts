@@ -11,10 +11,23 @@ import { Tenant } from 'src/tenants/models/tenant.entity';
 import { TenantTeam } from 'src/tenants/models/tenant-team';
 import { TenantAccountOfficer } from 'src/tenants/models/tenant-account-officer';
 import { UsersService } from 'src/users/users.service';
+import { JwtModule } from '@nestjs/jwt';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtRefreshTokenStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtCookieBasedStrategy } from './strategies/jwt-cookie-based.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
+
 
 @Module({
-  imports: [UsersModule, PassportModule, TypeOrmModule.forFeature([User, Role, Tenant, TenantTeam, TenantAccountOfficer])],
-  providers: [AuthService, LocalStrategy, UsersService],
+  imports: [UsersModule, 
+    PassportModule, //alternatively, we can specify default strategy if we have more than one, as done below
+    //PassportModule.register({ defaultStrategy: 'jwt' }),
+    TypeOrmModule.forFeature([User, Role, Tenant, TenantTeam, TenantAccountOfficer]),
+    JwtModule.register({}),
+    
+  ],
+  providers: [AuthService, LocalStrategy, UsersService, JwtStrategy, 
+    JwtCookieBasedStrategy, JwtRefreshTokenStrategy, FacebookStrategy],
   controllers: [AuthController]
 })
 export class AuthModule {}

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
 import { renderToNodeStream } from 'react-dom/server';
 import App from '../clients_dev/tenants-react-web-client/src/App';
 import * as React from 'react';
@@ -142,7 +142,7 @@ export class TenantsController {
           };
 
         const beforeStream = renderEngine().render('tenants/before-react-stream.fragment.html',
-            { title: 'Tenants Admin', TenantsActive: true, apiVersion: API_VERSION!==null? `${API_VERSION}`: '' })
+            { title: 'Tenants Admin', TenantsActive: true, apiVersion: API_VERSION!==null? `${API_VERSION}`: '', currentUrlSlug: API_VERSION!==null?`/${API_VERSION}/tenants/web`: '/tenants/web' })
 
         const afterStream = renderEngine().render('tenants/after-react-stream.fragment.html',
             { initialProps: encodeURI(JSON.stringify(initialProps)) })

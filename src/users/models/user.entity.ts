@@ -2,9 +2,11 @@ import { BaseAbstractEntity } from "../../global/base-abstract.entity";
 import { Gender } from "../../global/custom.interfaces";
 import { TenantAccountOfficer } from "../../tenants/models/tenant-account-officer";
 import { TenantTeam } from "../../tenants/models/tenant-team";
-import { Column, Entity, Index, JoinTable, ManyToMany, OneToMany } from "typeorm";
+import { Column, Entity, Index, JoinTable, ManyToMany, OneToMany, OneToOne } from "typeorm";
 import { Role } from "../../roles/models/role.entity";
 import { Tenant } from "../../tenants/models/tenant.entity";
+import { Exclude } from "class-transformer/decorators";
+import { FacebookProfile } from "./facebook-profile.entity";
 
 @Entity()
 export class User extends BaseAbstractEntity {
@@ -79,11 +81,11 @@ export class User extends BaseAbstractEntity {
     @Index()
     primaryEmailAddress: string;
 
-    @Column({nullable: true})
+    @Column({ nullable: true })
     backupEmailAddress: string;
 
-    @Column("simple-json", {nullable: true})
-    phone: {mobile:string[], office:string[], home:string[]}
+    @Column("simple-json", { nullable: true })
+    phone: { mobile: string[], office: string[], home: string[] }
 
     @Column({ default: false })
     isPrimaryEmailAddressVerified: boolean;
@@ -94,7 +96,7 @@ export class User extends BaseAbstractEntity {
     @Column({ nullable: true })
     passwordSalt: string;
 
-    @Column({select: true}) //don't select password whenever user is called. See https://typeorm.io/#/select-query-builder/hidden-columns
+    @Column({ select: false }) //don't select password whenever user is called. See https://typeorm.io/#/select-query-builder/hidden-columns
     passwordHash: string;
 
     //set to true if password change is required
@@ -124,7 +126,6 @@ export class User extends BaseAbstractEntity {
     @Column({ nullable: true })
     otpSecret: string;
 
-
     @ManyToMany(type => Role, role => role.users)
     @JoinTable()
     roles: Role[];
@@ -139,13 +140,19 @@ export class User extends BaseAbstractEntity {
      * Team member of which tenants?
      */
     //a user can be a team member of multiple tenants
-    @OneToMany(type => TenantTeam, tenantTeam => tenantTeam.user, {cascade: true})
+    @OneToMany(type => TenantTeam, tenantTeam => tenantTeam.user, { cascade: true })
     tenantTeamMemberships: TenantTeam[] //notice the array here
 
     /**
      * Landlord account officer for which tenants?
      */
-    @OneToMany(type => TenantAccountOfficer, tenantAccountOfficer => tenantAccountOfficer.user, {cascade: true})
+    @OneToMany(type => TenantAccountOfficer, tenantAccountOfficer => tenantAccountOfficer.user, { cascade: true })
     accountOfficerForWhichTenants: TenantAccountOfficer[]
 
+    /** for refresh token save after successful login*/
+    @Column({ select: false, nullable: true })
+    public refreshTokenHash: string;
+
+    @OneToOne(type => FacebookProfile, facebookProfile => facebookProfile.user, {cascade: true})
+    facebookProfile: FacebookProfile
 }

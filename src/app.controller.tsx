@@ -36,12 +36,10 @@ export class AppController {
   home(@Res() reply: Reply){
     //render main app guest home here. Use inheritance to separate header from navigation from content from footer
     //If home page is expected to be interactive, the content area can better be supplied by react on an SPA basis
-    
-    reply.view('guest-website/home.html', {apiVersion: API_VERSION!==null? `${API_VERSION}`: '', title: 'SGVI-1 Mini CMS Home', homeActive: 'true'})
+    reply.view('guest-website/home.html', {apiVersion: API_VERSION!==null? `${API_VERSION}`: '', title: 'SGVI-1 Mini CMS Home', homeActive: 'true', currentUrlSlug: API_VERSION!==null?`/${API_VERSION}`: '/'})
 
     //return this.appService.getHello();
     
-  }
- 
+  }  
   
 }

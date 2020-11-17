@@ -9,6 +9,9 @@ import { join } from 'path';
 //Below is for file upload.
 import fmp  from 'fastify-multipart';
 
+//Below is for reading cookies
+import fcookie from 'fastify-cookie';
+
 import { AppModule } from './app.module';
 import { API_VERSION, APP_DESCRIPTION, APP_NAME, USE_API_VERSION_IN_URL } from './global/app.settings';
 
@@ -17,8 +20,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 //temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 //see https://github.com/nestjs/swagger/issues/891#issuecomment-686283228
-//Note, the problem seems to have been fixed in @nestjs/platform-fastify": "^7.5.1". Hence commented out
-//import * as FastifyFormBody from 'fastify-formbody';
+import * as FastifyFormBody from 'fastify-formbody';
 
 
 async function bootstrap() {
@@ -45,8 +47,8 @@ async function bootstrap() {
   );
 
   //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
-  //Note, the problem seems to have been fixed in @nestjs/platform-fastify": "^7.5.1". Hence commented out
-  //app.register(FastifyFormBody as any);
+
+  app.register(FastifyFormBody as any);
 
   //Enable validation pipe. Requires npm install class-validator class-transformer
   app.useGlobalPipes(new ValidationPipe());
@@ -83,6 +85,9 @@ async function bootstrap() {
 
   //register fastify-multipart
   app.register(fmp);
+
+  //register fastify-cookie
+  app.register(fcookie);
 
   //General limits may be passed or per request basis. E.g.
   /*
