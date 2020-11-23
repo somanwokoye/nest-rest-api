@@ -1,11 +1,12 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Req, Res, Session } from '@nestjs/common';
+import { session } from 'passport';
 import { AppService } from './app.service';
 import { API_VERSION } from './global/app.settings';
 //import { renderToNodeStream } from 'react-dom/server';
 //import * as React from 'react';
 
 //Below is Pius modification to include fastify point-of-view view which is the equivalent of eclipse render
-import { Reply } from './global/custom.interfaces';
+import { Request, Reply } from './global/custom.interfaces';
 //import App from './clients_dev/tenant-react-web-client/src/App';
 
 import renderEngine from './global/render.engine';
@@ -41,5 +42,12 @@ export class AppController {
     //return this.appService.getHello();
     
   }  
+
+  @Get('test-session')
+  testSession(@Session() session, @Req() req: Request, @Res() reply: Reply){
+    console.log(req.session.expires)
+    session['data'] = 'This was written to session';
+    reply.send(session.data);
+  }
   
 }

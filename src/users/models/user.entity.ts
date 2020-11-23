@@ -7,6 +7,7 @@ import { Role } from "../../roles/models/role.entity";
 import { Tenant } from "../../tenants/models/tenant.entity";
 import { Exclude } from "class-transformer/decorators";
 import { FacebookProfile } from "./facebook-profile.entity";
+import { GoogleProfile } from "./google-profile.entity";
 
 @Entity()
 export class User extends BaseAbstractEntity {
@@ -29,10 +30,10 @@ export class User extends BaseAbstractEntity {
     @Column({ nullable: true })
     homeAddress: string;
 
-    @Column({ type: 'enum', enum: Gender })
+    @Column({ type: 'enum', enum: Gender, nullable: true }) //nullable because of Social Auth possibility of not getting it
     gender: Gender;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true }) //nullable because of Social Auth possibility of not getting it
     dateOfBirth: Date;
 
     @Column({ nullable: true })
@@ -155,4 +156,7 @@ export class User extends BaseAbstractEntity {
 
     @OneToOne(type => FacebookProfile, facebookProfile => facebookProfile.user, {cascade: true})
     facebookProfile: FacebookProfile
+
+    @OneToOne(type => GoogleProfile, googleProfile => googleProfile.user, {cascade: true})
+    googleProfile: GoogleProfile
 }

@@ -122,3 +122,13 @@ export const fbConstants = {
     PROFILE_FIELDS:['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
     CREATE_USER_IF_NOT_EXISTS:  true
 }
+
+export const googleConstants = {
+    GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER: process.env.GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    GOOGLE_OAUTH2_CLIENT_ID: process.env.GOOGLE_OAUTH2_CLIENT_ID,
+    GOOGLE_OAUTH2_CLIENT_SECRET: process.env.GOOGLE_OAUTH2_CLIENT_SECRET,
+    GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/google/redirect`: `http://localhost:3003/auth/google/redirect`,
+    GOOGLE_OAUTH2_SCOPE: 'openid profile email https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/profile.agerange.read',//see https://developers.google.com/people/api/rest/v1/people/get under Authorization Scopes section
+    CREATE_USER_IF_NOT_EXISTS: true
+}

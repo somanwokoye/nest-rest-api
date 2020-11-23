@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Post, UseGuards, Res, Redirect, Query, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Req, Post, UseGuards, Res, Redirect, Query, HttpStatus, Session, UnauthorizedException } from '@nestjs/common';
 import { API_VERSION } from 'src/global/app.settings';
 import { AuthTokenPayload, Reply, Request } from 'src/global/custom.interfaces';
 import { AuthService } from './auth.service';
@@ -9,11 +9,16 @@ import { AuthUser } from './decorators/authenticated-user.decorator';
 import { LandlordAdminAuth } from './decorators/landlord-admin-auth.decorator';
 import FacebookAuthGuard from './guards/facebook-auth.guard';
 import { FacebookProfileDto } from './dtos/facebook-profile.dto';
+import { GoogleOidcAuthGuard } from './guards/google-auth.guard';
+import { GoogleOidcCustomStrategy } from './strategies/google-oidc.custom.strategy';
+import { GoogleProfile } from 'src/users/models/google-profile.entity';
+import { User } from 'src/users/models/user.entity';
+import { GoogleProfileDto } from './dtos/google-profile.dto';
 
 @Controller('auth')
 export class AuthController {
 
-    constructor(private authService: AuthService) { }
+    constructor(private authService: AuthService, private googleOidcCustomStrategy: GoogleOidcCustomStrategy) { }
 
     /**
      * Below is a login form invoked when username and password need to be supplied in a Web from, for login from browser
@@ -146,10 +151,10 @@ export class AuthController {
             data: req.user,
         };
         */
-       const tokens = await this.authService.loginFacebookUser(req);//pass req that has user being passed by FacebookStrategy is FacebookProfileDto
+        const tokens = await this.authService.loginFacebookUser(req);//pass req that has user being passed by FacebookStrategy is FacebookProfileDto
 
-       //reply.headers([{access_token: tokens.access_token,refresh_token: tokens.refresh_token}])
-       reply.view('auth/login.html',
+        //reply.headers([{access_token: tokens.access_token,refresh_token: tokens.refresh_token}])
+        reply.view('auth/login.html',
             {
                 apiVersion: API_VERSION !== null ? `${API_VERSION}` : '',
                 loginUrl: API_VERSION !== null ? `/${API_VERSION}/auth/login` : '/auth/login',
@@ -160,6 +165,46 @@ export class AuthController {
                 refresh_token: tokens.refresh_token,
                 saveTokensInClient: 'true'
             })
+
+    }
+
+    @Get("/google")
+    //@UseGuards(GoogleOidcAuthGuard) Commented out because I had to create a custom approach without passport, because of incompatibility between passport and fastify-session
+    async googleLogin(@Req() req: Request, @Res() reply: Reply) {
+        //send the authorization Url
+        const authorizationUrl = await this.googleOidcCustomStrategy.getAuthorizationUrl(req)
+        reply.status(302).redirect(authorizationUrl);
+
+    }
+
+    @Get("/google/redirect")
+    //@UseGuards(GoogleOidcAuthGuard). Commented out because I had to create a custom approach without passport, because of incompatibility between passport and fastify-session
+    async googleLoginRedirect(@Req() req: Request, @Res() reply: Reply): Promise<any> {
+        try {
+            const user: GoogleProfileDto = await this.googleOidcCustomStrategy.processCallBack(req);
+
+            //TODO, rather than reply.send below, I need to implement authService.loginGoogleUser (see loginFacebookUser for clue)
+
+            //reply.send(user)
+            
+            const tokens = await this.authService.loginGoogleUser(user, req);//pass req that has user being passed by FacebookStrategy is FacebookProfileDto
+
+            //reply.headers([{access_token: tokens.access_token,refresh_token: tokens.refresh_token}])
+            reply.view('auth/login.html',
+                {
+                    apiVersion: API_VERSION !== null ? `${API_VERSION}` : '',
+                    loginUrl: API_VERSION !== null ? `/${API_VERSION}/auth/login` : '/auth/login',
+                    forgotPasswordUrl: API_VERSION !== null ? `/${API_VERSION}/users/reset-password-request` : '/users/reset-password-request',
+                    title: 'SGVI-1 Mini CMS Logging you in.',
+                    loginActive: 'true',
+                    access_token: tokens.access_token,
+                    refresh_token: tokens.refresh_token,
+                    saveTokensInClient: 'true'
+                })
+        } catch (error) {
+            //throw new UnauthorizedException();
+            reply.send(error)
+        }
 
     }
 }

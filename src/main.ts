@@ -7,10 +7,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { join } from 'path';
 
 //Below is for file upload.
-import fmp  from 'fastify-multipart';
-
-//Below is for reading cookies
-import fcookie from 'fastify-cookie';
+import fmp  from 'fastify-multipart'
 
 import { AppModule } from './app.module';
 import { API_VERSION, APP_DESCRIPTION, APP_NAME, USE_API_VERSION_IN_URL } from './global/app.settings';
@@ -21,6 +18,24 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 //temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 //see https://github.com/nestjs/swagger/issues/891#issuecomment-686283228
 import * as FastifyFormBody from 'fastify-formbody';
+
+/** attempt to use fastifySecureSession. Not yet supported by NestJS fastify */
+/*
+import fs from 'fs';
+import path from 'path';
+import fastifySecureSession from 'fastify-secure-session';
+*/
+
+
+import fcookie from 'fastify-cookie'; // a dependency of fastify-session below
+import fastifySession from 'fastify-session';
+import passport from 'passport';
+
+
+/*
+import session from 'express-session';
+import passport from 'passport';
+*/
 
 
 async function bootstrap() {
@@ -46,6 +61,22 @@ async function bootstrap() {
     }
   );
 
+  app.register(fcookie); //a dependency for fastifySession below
+  app.register(fastifySession, {
+    cookieName: 'sessionId',
+    secret: 'a secret with minimum length of 32 characters',
+    cookie: { 
+      secure: false, //if using https, set this to true
+      httpOnly: true,
+      //expires: 1800000,
+      maxAge: 30 * 60 * 1000,
+    },
+    
+  });
+  
+  /*app.use(passport.initialize());
+  app.use(passport.session());*/
+  
   //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 
   app.register(FastifyFormBody as any);
@@ -86,9 +117,6 @@ async function bootstrap() {
   //register fastify-multipart
   app.register(fmp);
 
-  //register fastify-cookie
-  app.register(fcookie);
-
   //General limits may be passed or per request basis. E.g.
   /*
   app.register(fmp, {
@@ -113,7 +141,26 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
 
+  //app.register(fastifySecureSession, {key: fs.readFileSync(path.join(__dirname, 'secret-key'))});
 
+
+
+  /* Below also has not worked for NestJS Fastify
+  app.use(session({
+    //store: new MongoStore({ url: process.env.MONGODB_URL}), // where session will be stored
+    secret: 'process.env.SESSION_SECRETsfddfdfdsffd', // to sign session id
+    resave: false, // will default to false in near future: https://github.com/expressjs/session#resave
+    saveUninitialized: false, // will default to false in near future: https://github.com/expressjs/session#saveuninitialized
+    rolling: true, // keep session alive
+    cookie: {
+      maxAge: 30 * 60 * 1000, // session expires in 1hr, refreshed by `rolling: true` option.
+      httpOnly: true, // so that cookie can't be accessed via client-side script
+    }
+  }));
+
+  app.use(passport.initialize());
+  app.use(passport.session());
+  */
 
   //await app.listen(3000);
   //For fastify, include 0.0.0.0 to listen on all IPs on the system. Otherwise, fastify will only listen on localhost.

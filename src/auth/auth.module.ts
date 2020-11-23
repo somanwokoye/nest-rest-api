@@ -16,18 +16,41 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshTokenStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtCookieBasedStrategy } from './strategies/jwt-cookie-based.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
+import { SessionSerializer } from './serializers/session.serializer';
+import { getOpenIdClient, GoogleOidcCustomStrategy } from './strategies/google-oidc.custom.strategy';
+
+/* //Below is not in use because of incompatibility between passport and fastify-session. Replaced by GoogleOidcCustomStrategyFactory
+const GoogleOidcStrategyFactory = {
+  provide: 'GoogleOidcStrategy',
+  useFactory: async (authService: AuthService) => {
+    const client = await buildOpenIdClient(); // build the dynamic client before injecting it into the strategy for use in the constructor super call.
+    const strategy = new GoogleOidcStrategy(authService, client);
+    return strategy;
+  },
+  inject: [AuthService]
+};
+*/
+
+const GoogleOidcCustomStrategyFactory = {
+  provide: 'GoogleOidcCustomStrategy',
+  useFactory: async () => {
+    const client = await getOpenIdClient(); // build the dynamic client before injecting it into the strategy for use in the constructor super call.
+    const strategy = new GoogleOidcCustomStrategy(client);
+    return strategy;
+  }
+}
 
 
 @Module({
   imports: [UsersModule, 
-    PassportModule, //alternatively, we can specify default strategy if we have more than one, as done below
-    //PassportModule.register({ defaultStrategy: 'jwt' }),
+    //PassportModule, //alternatively, we can specify default strategy if we have more than one, as done below
+    PassportModule.register({ session: true, defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([User, Role, Tenant, TenantTeam, TenantAccountOfficer]),
     JwtModule.register({}),
     
   ],
   providers: [AuthService, LocalStrategy, UsersService, JwtStrategy, 
-    JwtCookieBasedStrategy, JwtRefreshTokenStrategy, FacebookStrategy],
+    JwtCookieBasedStrategy, JwtRefreshTokenStrategy, FacebookStrategy, GoogleOidcCustomStrategyFactory, SessionSerializer],
   controllers: [AuthController]
 })
 export class AuthModule {}

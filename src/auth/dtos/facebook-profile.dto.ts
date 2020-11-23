@@ -5,7 +5,7 @@ import { User } from "src/users/models/user.entity";
 export class FacebookProfileDto {
 
     user?: User
-    facebookId?: number
+    facebookId?: string
     displayName?: string
     photos?: {value: string}[]
     emails?: {value: string, type?: string}[]

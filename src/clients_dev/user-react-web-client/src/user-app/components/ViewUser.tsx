@@ -148,10 +148,10 @@ const ViewUser: React.FC<Props> = ({ user }) => {
                                             Office:
                                         </div>
                                         <div className="column">
-                                            {user.phone!.office![0]}
+                                            {user.phone?user.phone!.office![0]: ''}
                                         </div>
                                         <div className="column">
-                                            {user.phone!.office![1]}
+                                            {user.phone?user.phone!.office![1]: ''}
                                         </div>
                                     </div>
                                     <div className="columns">
@@ -159,10 +159,10 @@ const ViewUser: React.FC<Props> = ({ user }) => {
                                             Mobile:
                                         </div>
                                         <div className="column">
-                                            {user.phone!.mobile![0]}
+                                            {user.phone?user.phone!.mobile![0]:''}
                                         </div>
                                         <div className="column">
-                                            {user.phone!.mobile![1]}
+                                            {user.phone?user.phone!.mobile![1]:''}
                                         </div>
                                     </div>
                                     <div className="columns">
@@ -170,10 +170,10 @@ const ViewUser: React.FC<Props> = ({ user }) => {
                                             Home:
                                         </div>
                                         <div className="column">
-                                            {user.phone!.home![0]}
+                                            {user.phone?user.phone!.home![0]:''}
                                         </div>
                                         <div className="column">
-                                            {user.phone!.home![1]}
+                                            {user.phone?user.phone!.home![1]:''}
                                         </div>
                                     </div>
                                 </div>

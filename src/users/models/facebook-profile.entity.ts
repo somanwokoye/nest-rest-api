@@ -12,7 +12,7 @@ export class FacebookProfile extends BaseAbstractEntity {
     //const { id, displayName, photos, emails, gender, name, profileUrl} = profile;
     @Index()
     @Column({unique: true})
-    facebookId: number
+    facebookId: string
 
     @Column({nullable: true})
     displayName: string

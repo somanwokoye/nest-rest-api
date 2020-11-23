@@ -3,9 +3,13 @@ import { UsersService } from 'src/users/users.service';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/models/user.entity';
 import { JwtService } from '@nestjs/jwt';
-import { API_VERSION, fbConstants, jwtConstants } from '../global/app.settings';
+import { API_VERSION, fbConstants, googleConstants, jwtConstants } from '../global/app.settings';
 import { AuthTokenPayload, Reply, Request } from '../global/custom.interfaces';
 import { FacebookProfileDto } from './dtos/facebook-profile.dto';
+import { Strategy, Client, UserinfoResponse, TokenSet, Issuer, generators } from 'openid-client';
+import { GoogleProfileDto } from './dtos/google-profile.dto';
+import { GoogleProfile } from 'src/users/models/google-profile.entity';
+
 
 
 @Injectable()
@@ -193,26 +197,26 @@ export class AuthService {
     /* Time to setup login that will return jwt for authenticated facebook user */
     async loginFacebookUser(req: Request) {
 
-        const facebookProfile: FacebookProfileDto  = req.user.facebookProfile;
+        const facebookProfile: FacebookProfileDto = req.user.facebookProfile;
 
         //get user if already in database, and send
         let user = await this.usersService.findByFacebookId(facebookProfile.facebookId)
 
-        if(!user){
+        if (!user) {
             //check to see if the user with the facebook email address as primaryEmailAddress exists
             user = await this.usersService.findByPrimaryEmailAddress(facebookProfile.emails[0].value);
 
-            if(user){
-                if(user.isPrimaryEmailAddressVerified){
+            if (user) {
+                if (user.isPrimaryEmailAddressVerified) {
                     //this user has a verified primary email address which is the same as that of Facebook. Associate them
-                    this.usersService.addFacebookProfile(user.id, facebookProfile);
-                }else{
+                    this.usersService.setFacebookProfile(user.id, facebookProfile);
+                } else {
                     //problem: throw constraint exception. May be better to advice confirmation but consider security
                     this.usersService.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
                     throw new UnauthorizedException("Confirmation of email already associated with your account is required")
-    
+
                 }
-            } 
+            }
         }
 
         //user does not exist at all
@@ -227,7 +231,7 @@ export class AuthService {
             const refresh_token = await this.createRefreshToken(user);
 
             //below we return both tokens in an object
-            
+
             return {
                 access_token, refresh_token
             };
@@ -235,5 +239,53 @@ export class AuthService {
             throw new UnauthorizedException;
         }
     }
+
+    /* Time to setup login that will return jwt for authenticated facebook user */
+    async loginGoogleUser(googleProfile: GoogleProfileDto, req: Request) {
+
+        //get user if already in database, and send
+        let user = await this.usersService.findByGoogleId(googleProfile.googleId)
+
+        if (!user) {
+            //check to see if the user with the google email address as primaryEmailAddress exists
+            user = await this.usersService.findByPrimaryEmailAddress(googleProfile.email);
+
+            if (user) {
+                if (user.isPrimaryEmailAddressVerified) {
+                    //this user has a verified primary email address which is the same as that of Google. Associate them
+                    this.usersService.setGoogleProfile(user.id, googleProfile);
+                } else {
+                    //problem: throw constraint exception. May be better to advice confirmation but consider security
+                    this.usersService.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
+                    throw new UnauthorizedException("Confirmation of email already associated with your account is required")
+
+                }
+            }
+        }else{
+            //user is already in the database. Update the Google tokens. I did not do this for facebook because I am not saving the facebook tokens. I will however also need to do so for facebook if writing code to query more Facebook APIs
+            await this.usersService.setGoogleProfile(user.id, googleProfile);
+        }
+
+        //user does not exist at all
+        if (!user && googleConstants.CREATE_USER_IF_NOT_EXISTS) {
+            //create the user
+            user = await this.usersService.createFromGoogleProfile(googleProfile)
+        }
+
+        if (user) {
+            const access_token = await this.createAccessToken(user);
+            //we need to generate refresh token, save to database and send it with the primary
+            const refresh_token = await this.createRefreshToken(user);
+
+            //below we return both tokens in an object
+
+            return {
+                access_token, refresh_token
+            };
+        } else {
+            throw new UnauthorizedException;
+        }
+    }
+
 }
 

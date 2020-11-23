@@ -33,7 +33,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, "facebook") {
             emails,
             name,
             profileUrl,
-            facebookId: parseInt(id),
+            facebookId: id,
             gender,
             photos,
             displayName,

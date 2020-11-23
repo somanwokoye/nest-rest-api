@@ -28,6 +28,7 @@ import { SendMailOptions } from 'nodemailer';
 import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
 import { FacebookProfileDto } from 'src/auth/dtos/facebook-profile.dto';
 import * as randomstring from 'randomstring';
+import { GoogleProfileDto } from 'src/auth/dtos/google-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -102,7 +103,7 @@ export class UsersService {
             let user = await this.userRepository.save(newUser);
 
             //add the relationship with facebookProfile before returning
-            user = await this.addFacebookProfile(user.id, facebookProfileDto);
+            user = await this.setFacebookProfile(user.id, facebookProfileDto);
 
             //no need to call confirm email as Facebook has done that for us.
             //TODO: But we need to send mail to welcome the user and also initiate password change request
@@ -121,10 +122,59 @@ export class UsersService {
                 }, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
-
-
-
     }
+
+    async createFromGoogleProfile(googleProfileDto: GoogleProfileDto): Promise<User> {
+
+        const createUserDto: CreateUserDto = {
+
+            landlord: false,
+            firstName: googleProfileDto.given_name,
+            lastName: googleProfileDto.family_name,
+            commonName: googleProfileDto.name,
+            primaryEmailAddress: googleProfileDto.email,
+            isPrimaryEmailAddressVerified: googleProfileDto.email_verified,
+            passwordHash: randomstring.generate(),
+            isPasswordChangeRequired: true,
+            gender: googleProfileDto.gender && googleProfileDto.gender == 'male' ? Gender.M : Gender.F,
+            dateOfBirth: googleProfileDto.birthdate && googleProfileDto.birthdate.year? new Date(googleProfileDto.birthdate.year, googleProfileDto.birthdate.month, googleProfileDto.birthdate.day) : null
+
+        }
+
+        //console.log(JSON.stringify(googleProfileDto))
+
+        //create the user
+        try {
+            const newUser = this.userRepository.create(createUserDto);
+            //hash the password in dto
+            await bcrypt.hash(newUser.passwordHash, 10).then((hash: string) => {
+                newUser.passwordHash = hash
+            })
+            
+            let user = await this.userRepository.save(newUser);
+
+            //add the relationship with googleProfile before returning
+            user = await this.setGoogleProfile(user.id, googleProfileDto);
+
+            //no need to call confirm email as Facebook has done that for us.
+            //TODO: But we need to send mail to welcome the user and also initiate password change request
+            return user;
+        } catch (error) {
+            if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+                //this would imply that the user with the email address already exists.
+                throw new HttpException({
+                    status: HttpStatus.BAD_REQUEST,
+                    error: `There was a problem with user creation: : ${error.message}`,
+                }, HttpStatus.BAD_REQUEST)
+            } else {
+                throw new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem with user creation: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+    }
+
 
     //insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
     async insertUsers(users: CreateUserDto[], req: Request): Promise<InsertResult> {//users is an array of objects
@@ -1074,13 +1124,29 @@ export class UsersService {
         }
     }
 
-    async findByFacebookId(id: number): Promise<User> {
+    async findByFacebookId(id: string): Promise<User> {
         try {
             return await this.userRepository.createQueryBuilder("user")
                 .addSelect("user.refreshTokenHash")
                 .leftJoinAndSelect("user.roles", "roles")
                 .leftJoinAndSelect("user.facebookProfile", "facebookProfile")
                 .where("facebookProfile.facebookId = :id", { id })
+                .getOne();
+        } catch (error) {
+            throw new HttpException({
+                status: HttpStatus.INTERNAL_SERVER_ERROR,
+                error: `There was a problem with getting user: ${error.message}`,
+            }, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    async findByGoogleId(id: string): Promise<User> {
+        try {
+            return await this.userRepository.createQueryBuilder("user")
+                .addSelect("user.refreshTokenHash")
+                .leftJoinAndSelect("user.roles", "roles")
+                .leftJoinAndSelect("user.googleProfile", "googleProfile")
+                .where("googleProfile.googleId = :id", { id })
                 .getOne();
         } catch (error) {
             throw new HttpException({
@@ -1395,7 +1461,7 @@ export class UsersService {
         });
     }
 
-    async addFacebookProfile(userId: number, facebookProfile: FacebookProfileDto): Promise<User> {
+    async setFacebookProfile(userId: number, facebookProfile: FacebookProfileDto): Promise<User> {
 
         try {
             await this.userRepository.createQueryBuilder()
@@ -1410,12 +1476,39 @@ export class UsersService {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
                 throw new HttpException({
                     status: HttpStatus.BAD_REQUEST,
-                    error: `There was a problem adding facebookProfile to user: ${error.message}`,
+                    error: `There was a problem adding Facebook Profile to user: ${error.message}`,
                 }, HttpStatus.BAD_REQUEST)
             } else {
                 throw new HttpException({
                     status: HttpStatus.INTERNAL_SERVER_ERROR,
-                    error: `There was a problem with adding facebookProfile to user: ${error.message}`,
+                    error: `There was a problem with adding Facebook Profile to user: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
+    }
+
+    async setGoogleProfile(userId: number, googleProfile: GoogleProfileDto): Promise<User> {
+
+        try {
+            await this.userRepository.createQueryBuilder()
+                .relation(User, "googleProfile")
+                .of(userId)
+                .set(googleProfile)
+
+            //return the user modified
+            return await this.userRepository.findOne(userId, { relations: ['googleProfile', 'roles'] });
+
+        } catch (error) {
+            if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+                throw new HttpException({
+                    status: HttpStatus.BAD_REQUEST,
+                    error: `There was a problem adding Google Profile to user: ${error.message}`,
+                }, HttpStatus.BAD_REQUEST)
+            } else {
+                throw new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem with adding Google Profile to user: ${error.message}`,
                 }, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
