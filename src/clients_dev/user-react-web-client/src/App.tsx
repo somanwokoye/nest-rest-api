@@ -8,8 +8,15 @@ import {
   NavLink
 } from 'react-router-dom';
 
+//import SearchUsers from './user-app/components/search/SearchUsers' //this option does not use react-router subroutes
+//import SearchUsersWithRouterNavigation from './user-app/components/search/SearchUsersWithRouterNavigation';
+import ViewSelectedUserWithRouterNavigation from './user-app/components/search/ViewSelectedUserWithRouterNavigation';
 //import RoleApp from './components/role/Role'; //replaced with loadable component below
-import UserApp from './user-app/UserApp';
+//import UserApp from './user-app/UserApp'; //replaced with loadable component below
+
+/* Below, we use reloadable to dynamically load RoleApp and UserApp components, when the route to them is clicked. 
+Reloadable ensures that the javascript build is split for optimal load speed. a.k.a code splitting 
+First created a component that shows loading message */
 /**
  * Below is a component that simply shows loading button without text or borders
  */
@@ -21,10 +28,18 @@ const Loading: React.FC = () => {
   )
 }
 
+//I am making SearchUsersWithRouterNavigation reloadable because renderToNodeStream on server side will fail with the use of localStorage
+const SearchUsersWithRouterNavigation = loadable(() => import("./user-app/components/search/SearchUsersWithRouterNavigation"), {
+  fallback: <Loading />
+});
+
 const RoleApp = loadable(() => import("./role-app/RoleApp"), {
   fallback: <Loading />
 });
 
+const UserApp = loadable(() => import('./user-app/UserApp'), {
+  fallback: <Loading />
+})
 
 
 type Props = {
@@ -55,6 +70,12 @@ const App: React.FC<Props> = ({ baseUrl }) => {
               <NavLink activeClassName='is-active' to={`${baseUrl}/`} >
                 {// eslint-disable-next-line
                   <a className="navbar-item">
+                    Search Users</a>
+                }
+              </NavLink>
+              <NavLink activeClassName='is-active' to={`${baseUrl}/user-admin`} >
+                {// eslint-disable-next-line
+                  <a className="navbar-item">
                     User Admin</a>
                 }
               </NavLink>
@@ -69,9 +90,15 @@ const App: React.FC<Props> = ({ baseUrl }) => {
         </div>
       </div>
       <Switch>
-        <Route exact path={`${baseUrl}/`} component={UserApp} />
-        {/** Below is for routing to Inventory Manager */}
+        {/** Below is for routing to search client demo */}
+        <Route exact path={`${baseUrl}`} component={SearchUsersWithRouterNavigation} />
+        {/** Below is for routing to view selected user to be called with history.push in SearchUsersWithRouterNavigation*/}
+        <Route exact path={`${baseUrl}/view-selected`} component={ViewSelectedUserWithRouterNavigation} />
+
+        <Route exact path={`${baseUrl}/user-admin`} component={UserApp} />
+        {/** Below is for routing to role admin */}
         <Route exact path={`${baseUrl}/role-admin`} component={RoleApp} />
+
         {/** Below is for routing URL that matches the path patter /hello/:variable */}
         <Route path={`${baseUrl}/hello/:name`} render={({ match }) => {
           return (

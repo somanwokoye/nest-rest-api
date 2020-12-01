@@ -18,6 +18,9 @@ import { JwtCookieBasedStrategy } from './strategies/jwt-cookie-based.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 import { SessionSerializer } from './serializers/session.serializer';
 import { getOpenIdClient, GoogleOidcCustomStrategy } from './strategies/google-oidc.custom.strategy';
+import UsersSearchService from 'src/search/services/usersSearch.services';
+import { ElasticsearchService } from '@nestjs/elasticsearch';
+import { SearchModule } from 'src/search/search.module';
 
 /* //Below is not in use because of incompatibility between passport and fastify-session. Replaced by GoogleOidcCustomStrategyFactory
 const GoogleOidcStrategyFactory = {
@@ -47,10 +50,11 @@ const GoogleOidcCustomStrategyFactory = {
     PassportModule.register({ session: true, defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([User, Role, Tenant, TenantTeam, TenantAccountOfficer]),
     JwtModule.register({}),
-    
+    SearchModule
   ],
-  providers: [AuthService, LocalStrategy, UsersService, JwtStrategy, 
-    JwtCookieBasedStrategy, JwtRefreshTokenStrategy, FacebookStrategy, GoogleOidcCustomStrategyFactory, SessionSerializer],
+  providers: [AuthService, LocalStrategy, UsersService, JwtStrategy,
+    JwtCookieBasedStrategy, JwtRefreshTokenStrategy, FacebookStrategy, GoogleOidcCustomStrategyFactory, SessionSerializer,
+    UsersSearchService],
   controllers: [AuthController]
 })
 export class AuthModule {}

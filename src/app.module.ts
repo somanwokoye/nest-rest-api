@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { ConnectionResourcesModule } from './connection-resources/connection-resources.module';
 import { AuthModule } from './auth/auth.module';
+import { SearchModule } from './search/search.module';
 
 /**
  * The App root module
@@ -21,6 +22,7 @@ import { AuthModule } from './auth/auth.module';
     RolesModule,
     ConnectionResourcesModule,
     AuthModule,
+    SearchModule,
 
     //read the environment .env file
     ConfigModule.forRoot(),

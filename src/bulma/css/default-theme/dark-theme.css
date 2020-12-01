@@ -5,7 +5,8 @@ You can override any of them. I am using them ASIS*/
 For dark theme, I will make the following adjustment of which colours apply to 
 which Bulma's derived variables
 */
-/*! bulma.io v0.9.0 | MIT License | github.com/jgthms/bulma */
+/*! bulma.io v0.9.1 | MIT License | github.com/jgthms/bulma */
+/* Bulma Utilities */
 @keyframes spinAround {
   from {
     transform: rotate(0deg); }
@@ -197,6 +198,7 @@ which Bulma's derived variables
   fieldset[disabled] .pagination-ellipsis {
     cursor: not-allowed; }
 
+/* Bulma Base */
 /*! minireset.css v0.0.6 | MIT License | github.com/jgthms/minireset.css */
 html,
 body,
@@ -290,6 +292,7 @@ section {
 body,
 button,
 input,
+optgroup,
 select,
 textarea {
   font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif; }
@@ -317,7 +320,7 @@ a {
 
 code {
   background-color: #242424;
-  color: #f14668;
+  color: #da1039;
   font-size: 0.875em;
   font-weight: normal;
   padding: 0.25em 0.5em 0.25em; }
@@ -376,6 +379,7 @@ table th {
 table th {
   color: whitesmoke; }
 
+/* Bulma Elements */
 .box {
   background-color: #0a0a0a;
   border-radius: 6px;
@@ -1219,7 +1223,7 @@ a.box:active {
   .button.is-static {
     background-color: #242424;
     border-color: #363636;
-    color: #7a7a7a;
+    color: white;
     box-shadow: none;
     pointer-events: none; }
   .button.is-rounded {
@@ -1282,7 +1286,7 @@ a.box:active {
   position: relative;
   width: auto; }
   .container.is-fluid {
-    max-width: none;
+    max-width: none !important;
     padding-left: 32px;
     padding-right: 32px;
     width: 100%; }
@@ -1290,16 +1294,16 @@ a.box:active {
     .container {
       max-width: 960px; } }
   @media screen and (max-width: 1215px) {
-    .container.is-widescreen {
+    .container.is-widescreen:not(.is-max-desktop) {
       max-width: 1152px; } }
   @media screen and (max-width: 1407px) {
-    .container.is-fullhd {
+    .container.is-fullhd:not(.is-max-desktop):not(.is-max-widescreen) {
       max-width: 1344px; } }
   @media screen and (min-width: 1216px) {
-    .container {
+    .container:not(.is-max-desktop) {
       max-width: 1152px; } }
   @media screen and (min-width: 1408px) {
-    .container {
+    .container:not(.is-max-desktop):not(.is-max-widescreen) {
       max-width: 1344px; } }
 
 .content li + li {
@@ -1730,6 +1734,8 @@ a.box:active {
       background-color: transparent; }
     .progress:indeterminate::-moz-progress-bar {
       background-color: transparent; }
+    .progress:indeterminate::-ms-fill {
+      animation-name: none; }
   .progress.is-small {
     height: 0.75rem; }
   .progress.is-medium {
@@ -2122,6 +2128,7 @@ a.tag:hover {
   text-align: center;
   vertical-align: top; }
 
+/* Bulma Form */
 .input, .textarea, .select select {
   background-color: #0a0a0a;
   border-color: #363636;
@@ -2148,31 +2155,31 @@ a.tag:hover {
     background-color: #242424;
     border-color: #242424;
     box-shadow: none;
-    color: #7a7a7a; }
+    color: white; }
     .input[disabled]::-moz-placeholder, .textarea[disabled]::-moz-placeholder, .select select[disabled]::-moz-placeholder,
     fieldset[disabled] .input::-moz-placeholder,
     fieldset[disabled] .textarea::-moz-placeholder,
     fieldset[disabled] .select select::-moz-placeholder,
     .select fieldset[disabled] select::-moz-placeholder {
-      color: rgba(122, 122, 122, 0.3); }
+      color: rgba(255, 255, 255, 0.3); }
     .input[disabled]::-webkit-input-placeholder, .textarea[disabled]::-webkit-input-placeholder, .select select[disabled]::-webkit-input-placeholder,
     fieldset[disabled] .input::-webkit-input-placeholder,
     fieldset[disabled] .textarea::-webkit-input-placeholder,
     fieldset[disabled] .select select::-webkit-input-placeholder,
     .select fieldset[disabled] select::-webkit-input-placeholder {
-      color: rgba(122, 122, 122, 0.3); }
+      color: rgba(255, 255, 255, 0.3); }
     .input[disabled]:-moz-placeholder, .textarea[disabled]:-moz-placeholder, .select select[disabled]:-moz-placeholder,
     fieldset[disabled] .input:-moz-placeholder,
     fieldset[disabled] .textarea:-moz-placeholder,
     fieldset[disabled] .select select:-moz-placeholder,
     .select fieldset[disabled] select:-moz-placeholder {
-      color: rgba(122, 122, 122, 0.3); }
+      color: rgba(255, 255, 255, 0.3); }
     .input[disabled]:-ms-input-placeholder, .textarea[disabled]:-ms-input-placeholder, .select select[disabled]:-ms-input-placeholder,
     fieldset[disabled] .input:-ms-input-placeholder,
     fieldset[disabled] .textarea:-ms-input-placeholder,
     fieldset[disabled] .select select:-ms-input-placeholder,
     .select fieldset[disabled] select:-ms-input-placeholder {
-      color: rgba(122, 122, 122, 0.3); }
+      color: rgba(255, 255, 255, 0.3); }
 
 .input, .textarea {
   box-shadow: inset 0 0.0625em 0.125em rgba(255, 255, 255, 0.05);
@@ -2271,8 +2278,10 @@ a.tag:hover {
     color: whitesmoke; }
   .checkbox[disabled], .radio[disabled],
   fieldset[disabled] .checkbox,
-  fieldset[disabled] .radio {
-    color: #7a7a7a;
+  fieldset[disabled] .radio,
+  .checkbox input[disabled],
+  .radio input[disabled] {
+    color: white;
     cursor: not-allowed; }
 
 .radio + .radio {
@@ -2400,7 +2409,7 @@ a.tag:hover {
   .select.is-large {
     font-size: 1.5rem; }
   .select.is-disabled::after {
-    border-color: #7a7a7a; }
+    border-color: white; }
   .select.is-fullwidth {
     width: 100%; }
     .select.is-fullwidth select {
@@ -2925,6 +2934,7 @@ a.tag:hover {
   .control.is-loading.is-large:after {
     font-size: 1.5rem; }
 
+/* Bulma Components */
 .breadcrumb {
   font-size: 1rem;
   white-space: nowrap; }
@@ -2981,9 +2991,11 @@ a.tag:hover {
 
 .card {
   background-color: #0a0a0a;
+  border-radius: 0.25rem;
   box-shadow: 0 0.5em 1em -0.125em rgba(255, 255, 255, 0.1), 0 0px 0 1px rgba(255, 255, 255, 0.02);
   color: #ededed;
   max-width: 100%;
+  overflow: hidden;
   position: relative; }
 
 .card-header {
@@ -3243,7 +3255,7 @@ button.dropdown-item {
     padding-left: 0.75em; }
 
 .menu-label {
-  color: #7a7a7a;
+  color: white;
   font-size: 0.75em;
   letter-spacing: 0.1em;
   text-transform: uppercase; }
@@ -3398,7 +3410,7 @@ button.dropdown-item {
   overflow: auto;
   position: relative;
   width: 100%; }
-  @media screen and (min-width: 769px), print {
+  @media screen and (min-width: 769px) {
     .modal-content,
     .modal-card {
       margin: 0 auto;
@@ -3432,8 +3444,8 @@ button.dropdown-item {
 
 .modal-card-head {
   border-bottom: 1px solid #363636;
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px; }
+  border-top-left-radius: "3px";
+  border-top-right-radius: "3px"; }
 
 .modal-card-title {
   color: whitesmoke;
@@ -3443,8 +3455,8 @@ button.dropdown-item {
   line-height: 1; }
 
 .modal-card-foot {
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
+  border-bottom-left-radius: "3px";
+  border-bottom-right-radius: "3px";
   border-top: 1px solid #363636; }
   .modal-card-foot .button:not(:last-child) {
     margin-right: 0.5em; }
@@ -4306,7 +4318,7 @@ a.navbar-item,
     background-color: #363636;
     border-color: #363636;
     box-shadow: none;
-    color: #7a7a7a;
+    color: white;
     opacity: 0.5; }
 
 .pagination-previous,
@@ -4511,7 +4523,7 @@ label.panel-block {
   text-align: center;
   vertical-align: top;
   width: 1em;
-  color: #7a7a7a;
+  color: white;
   margin-right: 0.75em; }
   .panel-icon .fa {
     font-size: inherit;
@@ -4625,6 +4637,7 @@ label.panel-block {
   .tabs.is-large {
     font-size: 1.5rem; }
 
+/* Bulma Grid */
 .column {
   display: block;
   flex-basis: 0;
@@ -5809,6 +5822,7 @@ label.panel-block {
       flex: none;
       width: 100%; } }
 
+/* Bulma Helpers */
 .has-text-white {
   color: white !important; }
 
@@ -6061,6 +6075,168 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .has-background-white-bis {
   background-color: #fafafa !important; }
 
+.is-flex-direction-row {
+  flex-direction: row !important; }
+
+.is-flex-direction-row-reverse {
+  flex-direction: row-reverse !important; }
+
+.is-flex-direction-column {
+  flex-direction: column !important; }
+
+.is-flex-direction-column-reverse {
+  flex-direction: column-reverse !important; }
+
+.is-flex-wrap-nowrap {
+  flex-wrap: nowrap !important; }
+
+.is-flex-wrap-wrap {
+  flex-wrap: wrap !important; }
+
+.is-flex-wrap-wrap-reverse {
+  flex-wrap: wrap-reverse !important; }
+
+.is-justify-content-flex-start {
+  justify-content: flex-start !important; }
+
+.is-justify-content-flex-end {
+  justify-content: flex-end !important; }
+
+.is-justify-content-center {
+  justify-content: center !important; }
+
+.is-justify-content-space-between {
+  justify-content: space-between !important; }
+
+.is-justify-content-space-around {
+  justify-content: space-around !important; }
+
+.is-justify-content-space-evenly {
+  justify-content: space-evenly !important; }
+
+.is-justify-content-start {
+  justify-content: start !important; }
+
+.is-justify-content-end {
+  justify-content: end !important; }
+
+.is-justify-content-left {
+  justify-content: left !important; }
+
+.is-justify-content-right {
+  justify-content: right !important; }
+
+.is-align-content-flex-start {
+  align-content: flex-start !important; }
+
+.is-align-content-flex-end {
+  align-content: flex-end !important; }
+
+.is-align-content-center {
+  align-content: center !important; }
+
+.is-align-content-space-between {
+  align-content: space-between !important; }
+
+.is-align-content-space-around {
+  align-content: space-around !important; }
+
+.is-align-content-space-evenly {
+  align-content: space-evenly !important; }
+
+.is-align-content-stretch {
+  align-content: stretch !important; }
+
+.is-align-content-start {
+  align-content: start !important; }
+
+.is-align-content-end {
+  align-content: end !important; }
+
+.is-align-content-baseline {
+  align-content: baseline !important; }
+
+.is-align-items-stretch {
+  align-items: stretch !important; }
+
+.is-align-items-flex-start {
+  align-items: flex-start !important; }
+
+.is-align-items-flex-end {
+  align-items: flex-end !important; }
+
+.is-align-items-center {
+  align-items: center !important; }
+
+.is-align-items-baseline {
+  align-items: baseline !important; }
+
+.is-align-items-start {
+  align-items: start !important; }
+
+.is-align-items-end {
+  align-items: end !important; }
+
+.is-align-items-self-start {
+  align-items: self-start !important; }
+
+.is-align-items-self-end {
+  align-items: self-end !important; }
+
+.is-align-self-auto {
+  align-self: auto !important; }
+
+.is-align-self-flex-start {
+  align-self: flex-start !important; }
+
+.is-align-self-flex-end {
+  align-self: flex-end !important; }
+
+.is-align-self-center {
+  align-self: center !important; }
+
+.is-align-self-baseline {
+  align-self: baseline !important; }
+
+.is-align-self-stretch {
+  align-self: stretch !important; }
+
+.is-flex-grow-0 {
+  flex-grow: 0 !important; }
+
+.is-flex-grow-1 {
+  flex-grow: 1 !important; }
+
+.is-flex-grow-2 {
+  flex-grow: 2 !important; }
+
+.is-flex-grow-3 {
+  flex-grow: 3 !important; }
+
+.is-flex-grow-4 {
+  flex-grow: 4 !important; }
+
+.is-flex-grow-5 {
+  flex-grow: 5 !important; }
+
+.is-flex-shrink-0 {
+  flex-shrink: 0 !important; }
+
+.is-flex-shrink-1 {
+  flex-shrink: 1 !important; }
+
+.is-flex-shrink-2 {
+  flex-shrink: 2 !important; }
+
+.is-flex-shrink-3 {
+  flex-shrink: 3 !important; }
+
+.is-flex-shrink-4 {
+  flex-shrink: 4 !important; }
+
+.is-flex-shrink-5 {
+  flex-shrink: 5 !important; }
+
 .is-clearfix::after {
   clear: both;
   content: " ";
@@ -6078,6 +6254,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .is-shadowless {
   box-shadow: none !important; }
 
+.is-clickable {
+  cursor: pointer !important; }
+
 .is-clipped {
   overflow: hidden !important; }
 
@@ -6089,6 +6268,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 
 .is-paddingless {
   padding: 0 !important; }
+
+.m-0 {
+  margin: 0 !important; }
 
 .mt-0 {
   margin-top: 0 !important; }
@@ -6110,6 +6292,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   margin-top: 0 !important;
   margin-bottom: 0 !important; }
 
+.m-1 {
+  margin: 0.25rem !important; }
+
 .mt-1 {
   margin-top: 0.25rem !important; }
 
@@ -6129,6 +6314,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .my-1 {
   margin-top: 0.25rem !important;
   margin-bottom: 0.25rem !important; }
+
+.m-2 {
+  margin: 0.5rem !important; }
 
 .mt-2 {
   margin-top: 0.5rem !important; }
@@ -6150,6 +6338,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   margin-top: 0.5rem !important;
   margin-bottom: 0.5rem !important; }
 
+.m-3 {
+  margin: 0.75rem !important; }
+
 .mt-3 {
   margin-top: 0.75rem !important; }
 
@@ -6169,6 +6360,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .my-3 {
   margin-top: 0.75rem !important;
   margin-bottom: 0.75rem !important; }
+
+.m-4 {
+  margin: 1rem !important; }
 
 .mt-4 {
   margin-top: 1rem !important; }
@@ -6190,6 +6384,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   margin-top: 1rem !important;
   margin-bottom: 1rem !important; }
 
+.m-5 {
+  margin: 1.5rem !important; }
+
 .mt-5 {
   margin-top: 1.5rem !important; }
 
@@ -6209,6 +6406,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .my-5 {
   margin-top: 1.5rem !important;
   margin-bottom: 1.5rem !important; }
+
+.m-6 {
+  margin: 3rem !important; }
 
 .mt-6 {
   margin-top: 3rem !important; }
@@ -6230,6 +6430,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   margin-top: 3rem !important;
   margin-bottom: 3rem !important; }
 
+.p-0 {
+  padding: 0 !important; }
+
 .pt-0 {
   padding-top: 0 !important; }
 
@@ -6249,6 +6452,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .py-0 {
   padding-top: 0 !important;
   padding-bottom: 0 !important; }
+
+.p-1 {
+  padding: 0.25rem !important; }
 
 .pt-1 {
   padding-top: 0.25rem !important; }
@@ -6270,6 +6476,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   padding-top: 0.25rem !important;
   padding-bottom: 0.25rem !important; }
 
+.p-2 {
+  padding: 0.5rem !important; }
+
 .pt-2 {
   padding-top: 0.5rem !important; }
 
@@ -6289,6 +6498,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .py-2 {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important; }
+
+.p-3 {
+  padding: 0.75rem !important; }
 
 .pt-3 {
   padding-top: 0.75rem !important; }
@@ -6310,6 +6522,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   padding-top: 0.75rem !important;
   padding-bottom: 0.75rem !important; }
 
+.p-4 {
+  padding: 1rem !important; }
+
 .pt-4 {
   padding-top: 1rem !important; }
 
@@ -6330,6 +6545,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   padding-top: 1rem !important;
   padding-bottom: 1rem !important; }
 
+.p-5 {
+  padding: 1.5rem !important; }
+
 .pt-5 {
   padding-top: 1.5rem !important; }
 
@@ -6349,6 +6567,9 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .py-5 {
   padding-top: 1.5rem !important;
   padding-bottom: 1.5rem !important; }
+
+.p-6 {
+  padding: 3rem !important; }
 
 .pt-6 {
   padding-top: 3rem !important; }
@@ -6968,6 +7189,7 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   .is-invisible-fullhd {
     visibility: hidden !important; } }
 
+/* Bulma Layout */
 .hero {
   align-items: stretch;
   display: flex;
@@ -9135,3 +9357,54 @@ $modal-bg-color: rgba($scheme-invert,.86);
     background-color: $scheme-main-bis;
 }
 */
+/* Below are themes for autosuggest*/
+.react-autosuggest__container {
+  position: relative; }
+
+.react-autosuggest__input {
+  width: 100%;
+  height: 36px;
+  padding: 10px;
+  border: 1px solid #7a7a7a;
+  border-radius: 4px;
+  background-color: #242424;
+  color: #ededed;
+  font-size: 1em; }
+
+.react-autosuggest__input--focused {
+  outline: none; }
+
+.react-autosuggest__input--open {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0; }
+
+.react-autosuggest__suggestions-container {
+  display: none; }
+
+.react-autosuggest__suggestions-container--open {
+  display: block;
+  position: absolute;
+  top: 33px;
+  width: 100%;
+  min-width: 160px;
+  margin-left: 0;
+  background-color: #242424;
+  border-radius: 0 0 4px 4px;
+  z-index: 2;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+  background-clip: padding-box;
+  color: #ededed; }
+
+.react-autosuggest__suggestions-list {
+  margin: 0;
+  padding: 0;
+  list-style-type: none; }
+
+.react-autosuggest__suggestion {
+  cursor: pointer;
+  padding: 10px 20px;
+  list-style-type: none; }
+
+.react-autosuggest__suggestion--highlighted {
+  color: #3273dc;
+  background-color: #121212; }

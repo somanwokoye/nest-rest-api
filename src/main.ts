@@ -7,7 +7,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { join } from 'path';
 
 //Below is for file upload.
-import fmp  from 'fastify-multipart'
+import fmp from 'fastify-multipart'
 
 import { AppModule } from './app.module';
 import { API_VERSION, APP_DESCRIPTION, APP_NAME, USE_API_VERSION_IN_URL } from './global/app.settings';
@@ -47,7 +47,13 @@ async function bootstrap() {
     AppModule,
     /*Below, I have deliberately added the options object here setting the values to the default. 
     There are many other fastify options, see https://www.fastify.io/docs/latest/Server/*/
-    new FastifyAdapter({ logger: false, ignoreTrailingSlash: false, bodyLimit: 1048576, caseSensitive: true, maxParamLength: 512 }),
+    new FastifyAdapter({
+      logger: false,
+      ignoreTrailingSlash: false,
+      bodyLimit: 1048576, caseSensitive: true,
+      maxParamLength: 512,
+      
+    }),
     //enable cors. Instead of simply setting to true which will use default config values, I am setting to object where I can set config values
     //see configuration options at the URL https://github.com/expressjs/cors#configuration-options
     {
@@ -65,18 +71,18 @@ async function bootstrap() {
   app.register(fastifySession, {
     cookieName: 'sessionId',
     secret: 'a secret with minimum length of 32 characters',
-    cookie: { 
+    cookie: {
       secure: false, //if using https, set this to true
       httpOnly: true,
       //expires: 1800000,
       maxAge: 30 * 60 * 1000,
     },
-    
+
   });
-  
+
   /*app.use(passport.initialize());
   app.use(passport.session());*/
-  
+
   //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 
   app.register(FastifyFormBody as any);

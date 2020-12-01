@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiBody, ApiConsumes, ApiCreatedResponse, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Reply } from 'src/global/custom.interfaces';
-import {GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
+import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
 import { CreateRoleDto } from 'src/roles/dto/create/create-role.dto';
 import { CreateTenantAccountOfficerDto } from 'src/tenants/dto/create/create-account-officer.dto';
 import { CreateTenantTeamDto, CreateTenantTeamRolesDto } from 'src/tenants/dto/create/create-tenant-team.dto';
@@ -9,7 +9,7 @@ import { CreateTenantDto } from 'src/tenants/dto/create/create-tenant.dto';
 import { UpdateTenantAccountOfficerRolesDto } from 'src/tenants/dto/update/update-account-officer.dto';
 import { UpdateTenantTeamRolesDto } from 'src/tenants/dto/update/update-tenant-team.dto';
 import { DeleteResult, InsertResult, UpdateResult } from 'typeorm';
-import { CreateUserDto, CreateUserDtos } from './dto/create/create-user.dto';
+import { CreateUserDtos } from './dto/create/create-user.dto';
 import { UpdateUserDto } from './dto/update/update-user.dto';
 import { FileUploadDto } from '../global/file-upload.dto';
 import { User } from './models/user.entity';
@@ -40,12 +40,12 @@ export class UsersController {
      * @param req 
      */
     @ApiOperation({ description: "Create a new user" })
-    @ApiCreatedResponse({description: 'User has been successfully created.'})
-    @ApiBadRequestResponse({description: "Bad request: constraint problem"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiCreatedResponse({ description: 'User has been successfully created.' })
+    @ApiBadRequestResponse({ description: "Bad request: constraint problem" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Post()
     //TODO: still to find out why CreateUserDto as type is failing below. I am using User meanwhile
-    create(@Body() createUserDto: User, @Req() req: Request): Promise<User>{
+    create(@Body() createUserDto: User, @Req() req: Request): Promise<User> {
         return this.usersService.create(createUserDto, req);
     }
 
@@ -55,9 +55,9 @@ export class UsersController {
      * @param req 
      */
     @ApiOperation({ description: "Create one or more new users in one go" })
-    @ApiCreatedResponse({description: 'Users have been successfully created.'})
-    @ApiBadRequestResponse({description: "Bad request: constraint problem"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiCreatedResponse({ description: 'Users have been successfully created.' })
+    @ApiBadRequestResponse({ description: "Bad request: constraint problem" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Post('insert')
     insert(@Body() createUserDtos: CreateUserDtos, @Req() req: Request): Promise<InsertResult> {
         return this.usersService.insertUsers(createUserDtos.dtos, req);
@@ -69,9 +69,9 @@ export class UsersController {
      * @param updateUserDto This dto does not contain user id. Deconstruct in usersService
      */
     @ApiOperation({ description: "Update a user. Only the fields sent from client will be updated" })
-    @ApiOkResponse({description: 'User has been successfully updated.'})
-    @ApiBadRequestResponse({description: "Bad request: constraint problem"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'User has been successfully updated.' })
+    @ApiBadRequestResponse({ description: "Bad request: constraint problem" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Patch(':id')
     update(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto): Promise<UpdateResult> {
         return this.usersService.update(id, updateUserDto);
@@ -83,9 +83,9 @@ export class UsersController {
      * Non-partial update. Takes a full tenant without param.
      */
     @ApiOperation({ description: "Update a user. Fully replaces all fields" })
-    @ApiOkResponse({description: 'User has been successfully updated.'})
-    @ApiBadRequestResponse({description: "Bad request: constraint problem"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'User has been successfully updated.' })
+    @ApiBadRequestResponse({ description: "Bad request: constraint problem" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Put()
     save(@Body() user: User): Promise<User> {
         return this.usersService.save(user);
@@ -96,9 +96,9 @@ export class UsersController {
      * @param id 
      */
     @ApiOperation({ description: "Delete a user." })
-    @ApiOkResponse({description: 'User has been successfully deleted.'})
-    @ApiBadRequestResponse({description: "Bad request: likely user does not exist"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'User has been successfully deleted.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely user does not exist" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Delete(':id')
     delete(@Param('id', ParseIntPipe) id: number) {
         return this.usersService.delete(id);
@@ -110,9 +110,9 @@ export class UsersController {
      * @param query May contain findOptions
      */
     @ApiOperation({ description: "Get all users that meet the criteria specified in query options, if any." })
-    @ApiOkResponse({description: 'Users returned.'})
-    @ApiBadRequestResponse({description: "Bad request: likely incorrect options sent"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Users returned.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely incorrect options sent" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Get()
     findAll(@Query() query: string): Promise<[User[], number]> {
         for (const queryKey of Object.keys(query)) {
@@ -129,8 +129,8 @@ export class UsersController {
      * 
      */
     @ApiOperation({ description: "Get a user with the id sent as param" })
-    @ApiOkResponse({description: 'User returned.'})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'User returned.' })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Get(':id')
     findOne(@Param('id', ParseIntPipe) id: number): Promise<User> {
         return this.usersService.findOne(id);
@@ -141,36 +141,40 @@ export class UsersController {
      * @param reply 
      */
     @ApiOperation({ description: "This url is for web client involving both server-side and client-side rendering" })
-    @ApiOkResponse({description: 'Rendered web page is returned.'})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Rendered web page is returned.' })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Get('web*')
     async web(@Res() reply: Reply, @Req() req: Request) {
-        //We want to render the raw way so that we can call renderToStream
-        const res = reply.raw;
+        try {
+            //We want to render the raw way so that we can call renderToStream
+            const res = reply.raw;
 
-        const beforeStream = renderEngine().render('users/before-react-stream.fragment.html',
-            { title: 'User Management', UserAdminctive: true, apiVersion: API_VERSION!==null? `${API_VERSION}`: '' , currentUrlSlug: API_VERSION!==null?`/${API_VERSION}/users/web`: '/users/web'})
+            const beforeStream = renderEngine().render('users/before-react-stream.fragment.html',
+                { title: 'User Management', UserAdminctive: true, apiVersion: API_VERSION !== null ? `${API_VERSION}` : '', currentUrlSlug: API_VERSION !== null ? `/${API_VERSION}/users/web` : '/users/web' })
 
-        const afterStream = renderEngine().render('users/after-react-stream.fragment.html')
+            const afterStream = renderEngine().render('users/after-react-stream.fragment.html')
 
-        //Write the first rendered fragment (upper html part)
-        res.write(beforeStream);
+            //Write the first rendered fragment (upper html part)
+            res.write(beforeStream);
 
-        //write the React app using renderToNodeStream
-        const context = {};
-        const stream = renderToNodeStream(
-            <StaticRouter location={req.url} context={context}>
-                <App  baseUrl={`${API_VERSION!==null? `/${API_VERSION}`: '' }/users/web`} />
-            </StaticRouter>
-        )
+            //write the React app using renderToNodeStream
+            const context = {};
+            const stream = renderToNodeStream(
+                <StaticRouter location={req.url} context={context}>
+                    <App baseUrl={`${API_VERSION !== null ? `/${API_VERSION}` : ''}/users/web`} />
+                </StaticRouter>
+            )
 
-        stream.addListener('end', () => {
-            res.write(afterStream); //Write the last rendered fragment (lower html part)
-            res.end();
-        });
+            stream.addListener('end', () => {
+                res.write(afterStream); //Write the last rendered fragment (lower html part)
+                res.end();
+            });
 
-        //enable stream piping
-        stream.pipe(res, { end: false });
+            //enable stream piping
+            stream.pipe(res, { end: false });
+        } catch (error) {
+            console.log(error)
+        }
     }
 
     /*Work on relationships*/
@@ -182,25 +186,25 @@ export class UsersController {
      */
 
     @ApiOperation({ description: "Post a new role and associate it with the user with userId." })
-    @ApiOkResponse({description: 'New role created and associated with the user.'})
-    @ApiBadRequestResponse({description: "Bad request: likely, user does not exist or role already exists"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'New role created and associated with the user.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely, user does not exist or role already exists" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Post(':userId/roles')
-    createAndAddRole(@Body() createRoleDto: CreateRoleDto, @Param('userId', ParseIntPipe) userId: number){
+    createAndAddRole(@Body() createRoleDto: CreateRoleDto, @Param('userId', ParseIntPipe) userId: number) {
         this.usersService.createAndAddRole(userId, createRoleDto);
     }
-    
+
     /**
      * Add role to a user by id
      * @param userId 
      * @param roleId 
      */
     @ApiOperation({ description: "Assign role with roleId to user with userId." })
-    @ApiOkResponse({description: 'Role assigned to user successfully.'})
-    @ApiBadRequestResponse({description: "Bad request: likely, user or role does not exist"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Role assigned to user successfully.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely, user or role does not exist" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Patch(':userId/roles/:roleId')
-    addRoleById(@Param('userId', ParseIntPipe) userId: number, @Param('roleId', ParseIntPipe) roleId: number){
+    addRoleById(@Param('userId', ParseIntPipe) userId: number, @Param('roleId', ParseIntPipe) roleId: number) {
         this.usersService.addRoleById(userId, roleId);
     }
 
@@ -210,11 +214,11 @@ export class UsersController {
      * @param userId 
      */
     @ApiOperation({ description: "Assign multiple roles to user with userId. The query should contain an array of roleIds in query key named roleid e.g. ?roleid=1&roleid=2&roleid=3..." })
-    @ApiOkResponse({description: 'Roles assigned to user successfully.'})
-    @ApiBadRequestResponse({description: "Bad request: likely, user or role(s) does not exist"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Roles assigned to user successfully.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely, user or role(s) does not exist" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Patch(':userId/roles')
-    addRolesById(@Query() query: string, @Param('userId', ParseIntPipe) userId: number): Promise<Role[]>{
+    addRolesById(@Query() query: string, @Param('userId', ParseIntPipe) userId: number): Promise<Role[]> {
         return this.usersService.addRolesById(userId, query['roleid']);
     }
 
@@ -224,11 +228,11 @@ export class UsersController {
      * @param roleId 
      */
     @ApiOperation({ description: "Remove role with roleId from user with userId" })
-    @ApiOkResponse({description: 'Role removed from user successfully.'})
-    @ApiBadRequestResponse({description: "Bad request: likely, user or role does not exist"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Role removed from user successfully.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely, user or role does not exist" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Delete(':userId/roles/:roleId')
-    removeRoleById(@Param('userId', ParseIntPipe) userId: number, @Param('roleId', ParseIntPipe) roleId: number): Promise<Role[]>{
+    removeRoleById(@Param('userId', ParseIntPipe) userId: number, @Param('roleId', ParseIntPipe) roleId: number): Promise<Role[]> {
         return this.usersService.removeRoleById(userId, roleId);
     }
 
@@ -238,11 +242,11 @@ export class UsersController {
      * @param userId 
      */
     @ApiOperation({ description: "Remove multiple roles from user with userId. The query should contain an array of roleIds in query key named roleid e.g. ?roleid=1&roleid=2&roleid=3..." })
-    @ApiOkResponse({description: 'Roles removed from user successfully.'})
-    @ApiBadRequestResponse({description: "Bad request: likely, user or role(s) does not exist"})
-    @ApiInternalServerErrorResponse({description: 'Internal server error'})
+    @ApiOkResponse({ description: 'Roles removed from user successfully.' })
+    @ApiBadRequestResponse({ description: "Bad request: likely, user or role(s) does not exist" })
+    @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Delete(':userId/roles')
-    removeRolesById(@Query() query: string, @Param('userId', ParseIntPipe) userId: number): Promise<Role[]>{
+    removeRolesById(@Query() query: string, @Param('userId', ParseIntPipe) userId: number): Promise<Role[]> {
         return this.usersService.removeRoleById(userId, query['roleid']);
     }
 
@@ -263,12 +267,12 @@ export class UsersController {
      * @param tenantId 
      */
     @Patch(':userId/primary-contact-for/:tenantId')
-    setAsPrimaryContactForATenantByTenantId(@Param('userId', ParseIntPipe) userId: number, @Param('tenantId', ParseIntPipe) tenantId: number): Promise<Tenant[]>{
+    setAsPrimaryContactForATenantByTenantId(@Param('userId', ParseIntPipe) userId: number, @Param('tenantId', ParseIntPipe) tenantId: number): Promise<Tenant[]> {
         return this.usersService.setAsPrimaryContactForATenantByTenantId(userId, tenantId);
     }
 
     @Patch(':userId/primary-contact-for-by-unique-name/:uniqueName')
-    setAsPrimaryContactForATenantByTenantUniqueName(@Param('userId', ParseIntPipe) userId: number, @Param('uniqueName') uniqueName: string): Promise<Tenant[]>{
+    setAsPrimaryContactForATenantByTenantUniqueName(@Param('userId', ParseIntPipe) userId: number, @Param('uniqueName') uniqueName: string): Promise<Tenant[]> {
         return this.usersService.setAsPrimaryContactForATenantByTenantUniqueName(userId, uniqueName);
     }
 
@@ -301,7 +305,7 @@ export class UsersController {
      */
     @Patch(':userId/team-membership/:tenantId')
     setTeamMembershipById(@Param('userId', ParseIntPipe) userId: number, @Param('tenantId', ParseIntPipe) tenantId: number, @Body() createTenantTeamRolesDto: CreateTenantTeamRolesDto): Promise<void> {
-        return this.usersService.setTeamMembershipById(userId, tenantId,createTenantTeamRolesDto);
+        return this.usersService.setTeamMembershipById(userId, tenantId, createTenantTeamRolesDto);
     }
 
     @Patch(':userId/team-membership-by-uniqueName/:uniqueName')
@@ -396,9 +400,9 @@ export class UsersController {
     @ApiBody({
         description: 'User photo',
         type: FileUploadDto,
-      })
+    })
     @Post(':userId/photo')
-    setUserPhoto(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request, @Res() reply: Reply): Promise<void>{
+    setUserPhoto(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request, @Res() reply: Reply): Promise<void> {
         return this.usersService.setUserPhoto(userId, req, reply);
     }
 
@@ -408,7 +412,7 @@ export class UsersController {
      * @param reply 
      */
     @Get(':userId/photo')
-    async getUserPhoto(@Param('userId', ParseIntPipe) userId: number, @Res() reply: Reply){
+    async getUserPhoto(@Param('userId', ParseIntPipe) userId: number, @Res() reply: Reply) {
         return this.usersService.getUserPhoto(userId, reply);
     }
 
@@ -418,9 +422,9 @@ export class UsersController {
      * @param req 
      */
     @Post('reset-password-request')
-    resetPasswordRequest(@Body() email: string, @Req() req: Request): Promise<GenericBulmaNotificationResponseDto>{
+    resetPasswordRequest(@Body() email: string, @Req() req: Request): Promise<GenericBulmaNotificationResponseDto> {
         return this.usersService.resetPasswordRequest(email, req);
-    }  
+    }
 
     /**
      * Reset password. Calls service to validate the token received and reset password. The Get here
@@ -430,7 +434,7 @@ export class UsersController {
      * @param reply 
      */
     @Get('reset-password/:token')
-    resetPassword1(@Param('token') token: string, @Res() reply: Reply){
+    resetPassword1(@Param('token') token: string, @Res() reply: Reply) {
         return this.usersService.resetPassword(token, null, reply);
     }
 
@@ -441,7 +445,7 @@ export class UsersController {
      * @param reply 
      */
     @Post('reset-password/:token')
-    resetPassword2(@Param('token') token: string, @Res() reply: Reply, @Body() body: {password: string}){
+    resetPassword2(@Param('token') token: string, @Res() reply: Reply, @Body() body: { password: string }) {
         return this.usersService.resetPassword(token, body.password, reply);
     }
 
@@ -451,11 +455,11 @@ export class UsersController {
      * @param req 
      */
     @Get(':userId/confirm-primary-email-request')
-    confirmPrimaryEmailRequest(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request){
+    confirmPrimaryEmailRequest(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request) {
         //may be safer to get userId from cookie
         return this.usersService.confirmEmailRequest(null, userId, true, req);
 
-    }  
+    }
 
     /**
      * Receives request to confirm backup email address of user with userId. Calls service to send a token.
@@ -463,11 +467,11 @@ export class UsersController {
      * @param req 
      */
     @Get(':userId/confirm-backup-email-request')
-    confirmBackupEmailRequest(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request){
+    confirmBackupEmailRequest(@Param('userId', ParseIntPipe) userId: number, @Req() req: Request) {
         //may be safer to get userId from cookie
         return this.usersService.confirmEmailRequest(null, userId, false, req);
 
-    } 
+    }
 
     /**
      * Called to confirm primary email address. Passes token to service to validate and then confirm email
@@ -475,7 +479,7 @@ export class UsersController {
      * @param reply 
      */
     @Get('confirm-primary-email/:token')
-    confirmPrimaryEmail(@Param('token') token: string, @Res() reply: Reply){
+    confirmPrimaryEmail(@Param('token') token: string, @Res() reply: Reply) {
         return this.usersService.confirmEmail(token, true, reply);
 
     }
@@ -486,9 +490,28 @@ export class UsersController {
      * @param reply 
      */
     @Get('confirm-backup-email/:token')
-    confirmBackupEmail(@Param('token') token: string, @Res() reply: Reply){
+    confirmBackupEmail(@Param('token') token: string, @Res() reply: Reply) {
         return this.usersService.confirmEmail(token, false, reply);
     }
-    
+
+    @Get('search-and-get-users') //search users and check users found in database and return full user objects
+    async searchAndGetUsers(@Query() query: string) {
+        const searchString: string = query['search-string']
+        return await this.usersService.searchForUsers(searchString, false);
+    }
+
+    @Get('search') //search users and return elastic search hits. Client takes responsibility for the rest. Useful for listing search results with links to fetch details afterwards
+    async search(@Query() query: string) {
+        const searchString: string = query['search-string']
+        return await this.usersService.searchForUsers(searchString, true);
+    }
+
+    @Get('suggest')
+    async suggest(@Query() query: string) {
+        const searchString: string = query['search-string']
+        //console.log(`searchString = ${searchString}`);
+        return this.usersService.suggestUsers(searchString);
+
+    }
 
 }

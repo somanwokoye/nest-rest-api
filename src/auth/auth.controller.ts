@@ -8,11 +8,7 @@ import jwt_decode from "jwt-decode";
 import { AuthUser } from './decorators/authenticated-user.decorator';
 import { LandlordAdminAuth } from './decorators/landlord-admin-auth.decorator';
 import FacebookAuthGuard from './guards/facebook-auth.guard';
-import { FacebookProfileDto } from './dtos/facebook-profile.dto';
-import { GoogleOidcAuthGuard } from './guards/google-auth.guard';
 import { GoogleOidcCustomStrategy } from './strategies/google-oidc.custom.strategy';
-import { GoogleProfile } from 'src/users/models/google-profile.entity';
-import { User } from 'src/users/models/user.entity';
 import { GoogleProfileDto } from './dtos/google-profile.dto';
 
 @Controller('auth')

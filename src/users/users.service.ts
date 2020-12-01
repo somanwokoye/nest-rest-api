@@ -11,7 +11,7 @@ import { UpdateTenantTeamRolesDto } from 'src/tenants/dto/update/update-tenant-t
 import { TenantAccountOfficer } from 'src/tenants/models/tenant-account-officer';
 import { TenantTeam } from 'src/tenants/models/tenant-team';
 import { Tenant } from 'src/tenants/models/tenant.entity';
-import { Connection, DeleteResult, InsertResult, Repository, UpdateResult } from 'typeorm';
+import { Connection, DeleteResult, In, InsertResult, Repository, UpdateResult } from 'typeorm';
 import { CreateUserDto } from './dto/create/create-user.dto';
 import { UpdateUserDto } from './dto/update/update-user.dto';
 import { User } from './models/user.entity';
@@ -29,6 +29,7 @@ import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
 import { FacebookProfileDto } from 'src/auth/dtos/facebook-profile.dto';
 import * as randomstring from 'randomstring';
 import { GoogleProfileDto } from 'src/auth/dtos/google-profile.dto';
+import UsersSearchService from 'src/search/services/usersSearch.services';
 
 @Injectable()
 export class UsersService {
@@ -40,7 +41,8 @@ export class UsersService {
         @InjectRepository(TenantTeam) private tenantTeamRepository: Repository<TenantTeam>,
         @InjectRepository(TenantAccountOfficer) private tenantAccountOfficerRepository: Repository<TenantAccountOfficer>,
         @InjectConnection('default')//You can inject connection by name. See https://docs.nestjs.com/techniques/database#multiple-databases
-        private connection: Connection
+        private connection: Connection,
+        private usersSearchService: UsersSearchService
     ) { }
 
     /*CREATE section*/
@@ -57,6 +59,9 @@ export class UsersService {
                 newUser.passwordHash = hash
             })
             const user = await this.userRepository.save(newUser);
+            //add to elastic search
+            this.usersSearchService.indexUser(user);
+
             //call confirmEmailRequest() without await.
             if (AUTO_SEND_CONFIRM_EMAIL) this.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
             return user;
@@ -99,8 +104,11 @@ export class UsersService {
             await bcrypt.hash(newUser.passwordHash, 10).then((hash: string) => {
                 newUser.passwordHash = hash
             })
-            
+
             let user = await this.userRepository.save(newUser);
+
+            //add to elastic search
+            this.usersSearchService.indexUser(user);
 
             //add the relationship with facebookProfile before returning
             user = await this.setFacebookProfile(user.id, facebookProfileDto);
@@ -137,7 +145,7 @@ export class UsersService {
             passwordHash: randomstring.generate(),
             isPasswordChangeRequired: true,
             gender: googleProfileDto.gender && googleProfileDto.gender == 'male' ? Gender.M : Gender.F,
-            dateOfBirth: googleProfileDto.birthdate && googleProfileDto.birthdate.year? new Date(googleProfileDto.birthdate.year, googleProfileDto.birthdate.month, googleProfileDto.birthdate.day) : null
+            dateOfBirth: googleProfileDto.birthdate && googleProfileDto.birthdate.year ? new Date(googleProfileDto.birthdate.year, googleProfileDto.birthdate.month, googleProfileDto.birthdate.day) : null
 
         }
 
@@ -150,8 +158,11 @@ export class UsersService {
             await bcrypt.hash(newUser.passwordHash, 10).then((hash: string) => {
                 newUser.passwordHash = hash
             })
-            
+
             let user = await this.userRepository.save(newUser);
+
+            //add to elastic search
+            this.usersSearchService.indexUser(user);
 
             //add the relationship with googleProfile before returning
             user = await this.setGoogleProfile(user.id, googleProfileDto);
@@ -193,6 +204,13 @@ export class UsersService {
                 .into(User)
                 .values(usersWithHashedPasswords)
                 .execute();
+
+            //Get the users with id before adding to elastic search index, without await
+            users.map((user) => {
+                this.findByPrimaryEmailAddress(user.primaryEmailAddress).then((user: User) => {
+                    this.usersSearchService.indexUser(user);
+                })
+            })
 
             //iteratively call confirmEmailRequest() for users without await.
             if (AUTO_SEND_CONFIRM_EMAIL) {
@@ -248,7 +266,10 @@ export class UsersService {
             }*/
             //exclude user password, if any. Password should be edited either by user setPassword or admin resetPassword
             const { passwordHash, ...userToSave } = user
-            return await this.userRepository.update(id, { ...userToSave })
+            const updateResult = await this.userRepository.update(id, { ...userToSave })
+            //update search index before return
+            this.usersSearchService.update(userToSave as User)
+            return updateResult;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
                 throw new HttpException({
@@ -280,7 +301,10 @@ export class UsersService {
             }*/
             //exclude user password if any. Password should be edited either by user setPassword or admin resetPassword
             const { passwordHash, ...userToSave } = user
-            return await this.userRepository.save({ ...userToSave })
+            const updatedUser = await this.userRepository.save({ ...userToSave })
+            //update search index before return
+            this.usersSearchService.update(userToSave as User)
+            return updatedUser;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
                 throw new HttpException({
@@ -307,11 +331,14 @@ export class UsersService {
             }*/
             //exclude user password, if any. Password should be edited either by user setPassword or admin resetPassword
             const { passwordHash, ...userToSave } = updateUserDto
-            return await this.userRepository.createQueryBuilder()
+            const updateResults = await this.userRepository.createQueryBuilder()
                 .update(User)
                 .set({ ...userToSave })
                 .where("id = :id", { id: userId })
                 .execute();
+            //update search index before return
+            this.usersSearchService.update(userToSave as User)
+            return updateResults;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
                 throw new HttpException({
@@ -333,6 +360,8 @@ export class UsersService {
     async delete(id: number): Promise<void> {
         try {
             await this.userRepository.delete(id);
+            //remove from index
+            await this.usersSearchService.remove(id);
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -344,11 +373,14 @@ export class UsersService {
     //query builder equivalent of delete shown above
     async deleteUser(userId: number): Promise<DeleteResult> {
         try {
-            return await this.userRepository.createQueryBuilder()
+            const deleteResult = await this.userRepository.createQueryBuilder()
                 .delete()
                 .from(User)
                 .where("id = :id", { id: userId })
                 .execute();
+            //remove from index
+            await this.usersSearchService.remove(userId);
+            return deleteResult;
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -364,7 +396,10 @@ export class UsersService {
      */
     async remove(user: User): Promise<User> {
         try {
-            return await this.userRepository.remove(user);
+            const deletedUser = await this.userRepository.remove(user);
+            //remove from index
+            await this.usersSearchService.remove(deletedUser.id);
+            return deletedUser;
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -1513,5 +1548,34 @@ export class UsersService {
             }
         }
 
+    }
+
+    /**
+     * This function receives a search string and finds the indexed users in elastic search and optionally returns the users from userRepository or send elastic search results
+     * @param text 
+     */
+    async searchForUsers(text: string, returnElasticSearchHitsDirectly: boolean) {
+        const results = await this.usersSearchService.search(text);
+        //console.log(JSON.stringify(results));
+        if (returnElasticSearchHitsDirectly) {
+            return results; //the client will have to handle the results directly
+        } else { //proceed to get the actual users from the database and send
+            const ids = results.map(result => result.id);
+            if (!ids.length) {
+                return [];
+            }
+            return await this.userRepository
+                .find({
+                    where: { id: In(ids) }
+                });
+        }
+    }
+    /**
+     * For users suggestion call
+     * @param text 
+     */
+    async suggestUsers(text: string) {
+        const results = await this.usersSearchService.suggest(text);
+        return results;
     }
 }

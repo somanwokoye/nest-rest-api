@@ -59,7 +59,7 @@ const UserApp: React.FC<IState> = (props) => {//assuming that props passed will 
   }
 
   //let findOptions: IFindOptions = {}
-  let findOptions: IFindOptions = { "relations": ["roles","primaryContactForWhichTenants","tenantTeamMemberships"] };
+  let findOptions: IFindOptions = { "relations": ["roles", "primaryContactForWhichTenants", "tenantTeamMemberships"] };
   /**
    * useEffect to be run once, hence the second parameter []. Loads data at componentDidMount life cycle stage
    */
@@ -147,7 +147,6 @@ const UserApp: React.FC<IState> = (props) => {//assuming that props passed will 
       </div>
     );
   }
-
 }
 
 export default UserApp;
