@@ -21,7 +21,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         database: configService.get('POSTGRES_DB', 'sgvi-1-minicms'),
         entities: ["dist/**/*.entity{.ts,.js}"],
         synchronize: true,
-        autoLoadEntities: true
+        autoLoadEntities: true,
+        cache: {
+          type: "ioredis",
+          options: {
+              host: "localhost",
+              port: 6379
+          }
+      }
       })
     })
   ],

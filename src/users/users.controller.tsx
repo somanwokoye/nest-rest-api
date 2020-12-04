@@ -115,11 +115,13 @@ export class UsersController {
     @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Get()
     findAll(@Query() query: string): Promise<[User[], number]> {
+        
         for (const queryKey of Object.keys(query)) {
             if (queryKey == "findOptions") {
                 return this.usersService.findAllWithOptions(decodeURI(query[queryKey]));
             }
         }
+        
         return this.usersService.findAll();
     }
 

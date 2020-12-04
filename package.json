@@ -66,6 +66,7 @@
     "fastify-static": "^3.3.0",
     "fastify-swagger": "^3.4.0",
     "googleapis": "^39.2.0",
+    "ioredis": "^4.19.2",
     "jwt-decode": "^3.1.1",
     "nodemailer": "^6.4.14",
     "nunjucks": "^3.2.2",

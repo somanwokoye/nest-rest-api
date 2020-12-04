@@ -62,6 +62,9 @@ export class UsersService {
             //add to elastic search
             this.usersSearchService.indexUser(user);
 
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
+
             //call confirmEmailRequest() without await.
             if (AUTO_SEND_CONFIRM_EMAIL) this.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
             return user;
@@ -109,6 +112,9 @@ export class UsersService {
 
             //add to elastic search
             this.usersSearchService.indexUser(user);
+
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
 
             //add the relationship with facebookProfile before returning
             user = await this.setFacebookProfile(user.id, facebookProfileDto);
@@ -163,6 +169,9 @@ export class UsersService {
 
             //add to elastic search
             this.usersSearchService.indexUser(user);
+
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
 
             //add the relationship with googleProfile before returning
             user = await this.setGoogleProfile(user.id, googleProfileDto);
@@ -269,6 +278,10 @@ export class UsersService {
             const updateResult = await this.userRepository.update(id, { ...userToSave })
             //update search index before return
             this.usersSearchService.update(userToSave as User)
+
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
+
             return updateResult;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -304,6 +317,9 @@ export class UsersService {
             const updatedUser = await this.userRepository.save({ ...userToSave })
             //update search index before return
             this.usersSearchService.update(userToSave as User)
+
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
             return updatedUser;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -338,6 +354,10 @@ export class UsersService {
                 .execute();
             //update search index before return
             this.usersSearchService.update(userToSave as User)
+
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
+
             return updateResults;
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -362,6 +382,8 @@ export class UsersService {
             await this.userRepository.delete(id);
             //remove from index
             await this.usersSearchService.remove(id);
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -380,6 +402,8 @@ export class UsersService {
                 .execute();
             //remove from index
             await this.usersSearchService.remove(userId);
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
             return deleteResult;
         } catch (error) {
             throw new HttpException({
@@ -399,6 +423,8 @@ export class UsersService {
             const deletedUser = await this.userRepository.remove(user);
             //remove from index
             await this.usersSearchService.remove(deletedUser.id);
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"])
             return deletedUser;
         } catch (error) {
             throw new HttpException({
@@ -427,7 +453,12 @@ export class UsersService {
 
     async findAll(): Promise<[User[], number]> {
         try {
-            return await this.userRepository.findAndCount();
+            return await this.userRepository.findAndCount({
+                cache: {
+                    id: "users",
+                    milliseconds: 25000
+                }
+            });
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
