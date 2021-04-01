@@ -3,47 +3,63 @@ import { Tenant } from "../../tenants/models/tenant.entity";
 import { Column, Entity, Generated, Index, JoinColumn, OneToOne } from "typeorm";
 
 @Entity()
-@Index(["name", "platform"], {unique: true})//can't have two connections of same name on same platform
-export class ConnectionResource extends BaseAbstractEntity{
-    
-    @Generated("uuid")
-    uuid: string;
+@Index(["name", "platform"], { unique: true })//can't have two connections of same name on same platform
+export class ConnectionResource extends BaseAbstractEntity {
 
-    @Column()//used as connection name in SaaS platform
-    name: string
+  @Generated("uuid")
+  uuid: string;
 
-    @Column()
-    description: string
+  @Column()//used as connection name in SaaS platform
+  name: string
 
-    @Column({default: false})
-    active: boolean
+  @Column()
+  description: string
 
-    /**
-     * Which platform is the tenant assigned to? e.g. p1.peakharmony.com. 
-     * There will then be a 301 redirect to the platform from nginx 
-     * for requests coming to the tenant's defaultURLSlug or customURLSlug
-     */
-    @Column()
-    platform: string
+  @Column({ default: false })
+  active: boolean
 
-    @Column("simple-json")
-    connectionProperties: {
-        type: string,
-        host: string,
-        port: string,
-        username: string,
-        password: string,
-        database: string,
-        schema: string
-      }; //for database connection
+  /**
+   * Which platform is the tenant assigned to? e.g. p1.peakharmony.com. 
+   * There will then be a 301 redirect to the platform from nginx 
+   * for requests coming to the tenant's defaultURLSlug
+   */
+  @Column()
+  platform: string
 
-    @Column()
-    rootFileSystem: string; //root of filesystem for uploads for the tenant. It could be a network file system.
+  @Column("simple-json")
+  connectionProperties: {
+    type: string,
+    host: string,
+    port: string,
+    username: string,
+    password: string,
+    database: string,
+    schema: string
+  }; //for database connection
 
-    /**
-     * Allocation of connection to tenant: one-to-one
-     */
-    @JoinColumn()
-    @OneToOne(type => Tenant, tenant => tenant.connectionResource)
-    tenant: Tenant
+
+  @Column("simple-json")
+  elasticSearchProperties: {
+    node: string,
+    username: string,
+    password: string
+  }; //for elastic search connection
+
+  @Column("simple-json")
+  redisProperties: {
+    host: string,
+    port: string,
+    password: string
+  }; //for redis connection
+
+
+  @Column()
+  rootFileSystem: string; //root of filesystem for uploads for the tenant. It could be a network file system.
+
+  /**
+   * Allocation of connection to tenant: one-to-one
+   */
+  @JoinColumn()
+  @OneToOne(type => Tenant, tenant => tenant.connectionResource)
+  tenant: Tenant
 }

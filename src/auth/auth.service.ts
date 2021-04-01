@@ -240,7 +240,7 @@ export class AuthService {
         }
     }
 
-    /* Time to setup login that will return jwt for authenticated facebook user */
+    /* Time to setup login that will return jwt for authenticated Google user */
     async loginGoogleUser(googleProfile: GoogleProfileDto, req: Request) {
 
         //get user if already in database, and send

@@ -179,7 +179,7 @@ export class AuthController {
         try {
             const user: GoogleProfileDto = await this.googleOidcCustomStrategy.processCallBack(req);
 
-            //TODO, rather than reply.send below, I need to implement authService.loginGoogleUser (see loginFacebookUser for clue)
+            //Rather than reply.send below, I need to implement authService.loginGoogleUser (see loginFacebookUser for clue)
 
             //reply.send(user)
             

@@ -37,3 +37,8 @@ export interface AuthTokenPayload {
   }
 }
 
+export enum ThemeType {
+  standard = 'standard',
+  piosystems = 'piosystems'
+}
+

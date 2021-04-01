@@ -1,4 +1,4 @@
-//The values used here should really come from a settings table in database.
+//The values used here should really come from a settings table in database or in env file, especially for multitenancy.
 
 import * as nodemailer from 'nodemailer';
 import Mail from 'nodemailer/lib/mailer';

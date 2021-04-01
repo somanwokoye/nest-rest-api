@@ -28,7 +28,7 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, smtpTransport, smtpTransportGmail, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
+import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, smtpTransport, smtpTransportGmail, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 
 
@@ -726,7 +726,7 @@ export class TenantsService {
     async createAndAddBilling(tenantId: number, createBillingDto: CreateBillingDto): Promise<void> {
         try {
             await this.connection.manager.transaction(async entityManager => {
-                const newBilling = this.themeRepository.create(createBillingDto);
+                const newBilling = this.billingRepository.create(createBillingDto);
                 const billing = await entityManager.save(newBilling);
                 await entityManager.createQueryBuilder()
                     .relation(Tenant, "billings")

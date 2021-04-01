@@ -16,7 +16,7 @@ export class RolesService {
         @InjectRepository(Role) private roleRepository: Repository<Role>
     ) { }
 
-    async create(createRoleDto: CreateRoleDto, req: Request): Promise<Role> {
+    async create(createRoleDto: CreateRoleDto): Promise<Role> {
         try {
             const newRole = this.roleRepository.create(createRoleDto);
             return await this.roleRepository.save(newRole);
@@ -36,7 +36,7 @@ export class RolesService {
     }
 
     //insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
-    async insertRoles(roles: CreateRoleDto[], req: Request): Promise<InsertResult> {//roles is an array of objects
+    async insertRoles(roles: CreateRoleDto[]): Promise<InsertResult> {//roles is an array of objects
         try {
             const insertResult = await this.roleRepository.createQueryBuilder()
                 .insert()

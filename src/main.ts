@@ -17,7 +17,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 //temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 //see https://github.com/nestjs/swagger/issues/891#issuecomment-686283228
-import * as FastifyFormBody from 'fastify-formbody';
+//import * as FastifyFormBody from 'fastify-formbody';
 
 /** attempt to use fastifySecureSession. Not yet supported by NestJS fastify */
 /*
@@ -63,7 +63,7 @@ async function bootstrap() {
         "preflightContinue": false,
         "optionsSuccessStatus": 204
       },
-      bodyParser: false //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
+      //bodyParser: false //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
     }
   );
 
@@ -85,7 +85,7 @@ async function bootstrap() {
 
   //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 
-  app.register(FastifyFormBody as any);
+  //app.register(FastifyFormBody as any);
 
   //Enable validation pipe. Requires npm install class-validator class-transformer
   app.useGlobalPipes(new ValidationPipe());

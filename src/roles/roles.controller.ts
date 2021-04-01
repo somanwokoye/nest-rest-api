@@ -23,8 +23,8 @@ export class RolesController {
     @ApiBadRequestResponse({description: "Bad request: likely constraint problem"})
     @ApiInternalServerErrorResponse({description: 'Internal server error'})
     @Post()
-    create(@Body() createRoleDto: CreateRoleDto, @Req() req: Request): Promise<Role>{
-        return this.rolesService.create(createRoleDto, req);
+    create(@Body() createRoleDto: CreateRoleDto): Promise<Role>{
+        return this.rolesService.create(createRoleDto);
     }
 
 
@@ -38,8 +38,8 @@ export class RolesController {
     @ApiBadRequestResponse({description: "Bad request: likely a constraint problem"})
     @ApiInternalServerErrorResponse({description: 'Internal server error'})
     @Post('insert')
-    insert(@Body() createRoleDtos: CreateRoleDtos, @Req() req: Request): Promise<InsertResult> {
-        return this.rolesService.insertRoles(createRoleDtos.dtos, req);
+    insert(@Body() createRoleDtos: CreateRoleDtos): Promise<InsertResult> {
+        return this.rolesService.insertRoles(createRoleDtos.dtos);
     }
 
     /**

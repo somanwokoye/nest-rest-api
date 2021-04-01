@@ -5,7 +5,7 @@ import { User } from "./user.entity";
 @Entity()
 export class GoogleProfile extends BaseAbstractEntity {
     @JoinColumn()
-    @OneToOne(type => User, user => user.facebookProfile, {onDelete: 'CASCADE'})
+    @OneToOne(type => User, user => user.googleProfile, {onDelete: 'CASCADE'})
     user: User
 
     @Index()

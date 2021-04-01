@@ -11,7 +11,7 @@ export default interface UserSearchResult {
     suggestFullNameWithWeights?: [{ //I am using only this for illustration. I figured out these fields from the JSON output
       text: string,
       offset: number,
-      length: 4,
+      length: number,
       options: [
         {
           text: string, //the text that was sent as search string
@@ -29,7 +29,7 @@ export default interface UserSearchResult {
     suggestFullName?: [{ //I am using only this for illustration. I figured out these fields from the JSON output
       text: string,
       offset: number,
-      length: 4,
+      length: number,
       options: [
         {
           text: string, //the text that was sent as search string
