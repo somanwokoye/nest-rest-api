@@ -1,6 +1,7 @@
 /** This component is for displaying each tenant in the record, passed to it from TenantList */
-import React, { useState } from 'react';
-import { Gender, IAction, ITenant, TenantStatus } from '../app.interfaces';
+import React, { useEffect, useState } from 'react';
+import { Gender, IAction, IAssignableRegionInfo, ITenant, TenantStatus } from '../global/app.interfaces';
+import { RelationsHandlers } from '../tenant-crud-handlers/relations-handlers';
 
 //create the type for the anticipated props to be passed from parent component
 type Props = {
@@ -8,15 +9,22 @@ type Props = {
     dispatch: React.Dispatch<IAction>
 }
 
-type IState = {
+export type IAddTenantState = {
     tenant: ITenant,
-    createPrimaryContact: boolean
+    createPrimaryContact: boolean,
+    assignableRegionsInfo: IAssignableRegionInfo[],
+    regionChosen: IAssignableRegionInfo | null,
+    chosenDomainNameExists: boolean,
+    domainNameExistsChecked: boolean
 }
 
 const AddTenant: React.FC<Props> = (props) => {
 
     const initialTenantState: ITenant = {
-        uniqueName: '',
+        name: '',
+        subDomainName: null,
+        regionName: '',
+        regionRootDomainName: '',
         address: '',
         moreInfo: '',
         status: undefined,
@@ -24,23 +32,28 @@ const AddTenant: React.FC<Props> = (props) => {
         dateOfRegistration: new Date(),
         active: true,
         uniqueSchema: true,
-        primaryContact: {},
+        primaryContact: {isPrimaryEmailAddressVerified: false}
+
         /* As we did for primaryContact, we can also do for the other relations
-        connectionResource: {},
+        tenantConfigDetail: {},
         customTheme: {},
         teamMembers: [],
         tenantAccountOfficers: []
         */
     }
 
-    const initialState: IState = {
+    const initialState: IAddTenantState = {
         tenant: initialTenantState,
-        createPrimaryContact: true
+        createPrimaryContact: true,
+        assignableRegionsInfo: [],
+        regionChosen: null,
+        chosenDomainNameExists: true,
+        domainNameExistsChecked: false
     }
 
     //declare the state variable for tenant to be added from form. Notice that we are using an object containing the individual elements
     //We need to interact with them individually as state variable that will change in response to input onChange 
-    const [state, setState] = useState<IState>({ ...initialState });
+    const [state, setState] = useState<IAddTenantState>({ ...initialState });
 
 
     //create a general onChange event handler for form inputs that fire onChange event
@@ -50,8 +63,37 @@ const AddTenant: React.FC<Props> = (props) => {
         //modify element in the state which has the same name as the input that fired this event. Pass the new value
         const target: HTMLInputElement | HTMLSelectElement = event.target as HTMLInputElement | HTMLSelectElement; //as is used here to cast
         tenant[target.name] = target.value;
-        setState({ ...state, tenant });//checkin the modified tenant state
+        if (target.name == 'subDomainName') {
+            setState({ ...state, tenant, domainNameExistsChecked: false });//checkin the modified tenant state and indicate that domainName needs to be checked again
+        } else {
+            setState({ ...state, tenant });//checkin the modified tenant state
+        }
+
     }
+
+    const onRegionChange = (event: React.FormEvent) => {
+
+        const target: HTMLInputElement | HTMLSelectElement = event.target as HTMLInputElement | HTMLSelectElement; //as is used here to cast
+        const regionName = target.value;
+        const regionChosen: IAssignableRegionInfo = state.assignableRegionsInfo.find(region => region.name === regionName)!;
+
+        //setState
+        //first update tenant
+        const tenant = { ...state.tenant, regionName: regionChosen.name, regionRootDomainName: regionChosen.rootDomainName };
+        setState({ ...state, tenant, regionChosen, domainNameExistsChecked: false });
+        //Todo: test to see if subDomainName.rootDomainName is available
+        if (state.tenant.subDomainName != null && state.tenant.subDomainName != '') {
+            //make a call to server to check for unique combination of regionName and subDomainName in tenant
+        }
+
+    }
+    const checkIfChosenDomainNameExists = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (state.tenant.subDomainName != null && state.tenant.subDomainName != '' && state.tenant.regionRootDomainName != null)
+            RelationsHandlers.checkIfChosenDomainNameExists(
+                state.tenant.subDomainName!, state.tenant.regionRootDomainName!, state, setState);
+    }
+
     const onPrimaryContactChange = (event: React.FormEvent) => {
         const tenant = state.tenant;//check out tenant in state as is
         //modify element in the state which has the same name as the input that fired this event. Pass the new value
@@ -61,9 +103,26 @@ const AddTenant: React.FC<Props> = (props) => {
         setState({ ...state, tenant });//checkin the modified state
     }
 
+    const isPrimaryEmailAddressVerifiedChange = () => {
+        //toggle
+        const isPrimaryEmailAddressVerified = state.tenant.primaryContact!.isPrimaryEmailAddressVerified? false: true;
+        //override value in state
+        const primaryContact = {...state.tenant.primaryContact, isPrimaryEmailAddressVerified};
+        const tenant = {...state.tenant, primaryContact};
+        setState ({...state, tenant});
+    }
+
     //function to handle form onSubmit event
     const onSubmit = (event: React.FormEvent) => {
         event.preventDefault();//do not do the default form submit to the server
+        const tenant = state.tenant;
+
+        //Below condition is just to test the process requiring no further email verification
+        //which will allow tenantConfigDetail to be created.
+        /*if (tenant.primaryContact)
+            tenant.primaryContact.isPrimaryEmailAddressVerified = true;
+            */
+
         props.handleCreateTenant(state.tenant, state.createPrimaryContact ? 1 : 0, props.dispatch);//call the handleAddTenant function passed via props.
     }
 
@@ -79,6 +138,11 @@ const AddTenant: React.FC<Props> = (props) => {
         setState({ ...state, createPrimaryContact })
     }
 
+    useEffect(() => {
+        RelationsHandlers.getAssignableRegions(state, setState);
+        // eslint-disable-next-line
+    }, []);
+
     //Note where the above functions are used below within the return statement
     return (
         <form onSubmit={onSubmit}>
@@ -88,13 +152,51 @@ const AddTenant: React.FC<Props> = (props) => {
                 </div>
                 <div className="columns is-mobile">
                     <div className="column">
+
                         <div className="box">
                             <div className="field">
-                                <label className="label">Unique Name</label>
+                                <label className="label">Name</label>
                                 <div className="control">
-                                    <input className="input" type="text" placeholder="Unique name input" name="uniqueName" value={state.tenant.uniqueName} onChange={onChange} required />
+                                    <input className="input" type="text" placeholder="Your preferred common name" name="name" value={state.tenant.name} onChange={onChange} required />
                                 </div>
                             </div>
+                            {state.assignableRegionsInfo!.length > 0 &&
+
+                                <div className="box">
+
+                                    <h6>Choose region and domain name</h6>
+                                    <div className="field">
+                                        <label className="label">Region</label>
+                                        <select name="region" id="region" multiple className="control" onChange={onRegionChange} style={{ minWidth: '50%' }}>
+                                            {state.assignableRegionsInfo.map((assignableRegion) => {
+                                                return <option value={assignableRegion.name}>{`Name: ${assignableRegion.name}; 
+                                                        Location: ${assignableRegion.city}, 
+                                                        ${assignableRegion.country}; Applicable domain name: ${assignableRegion.rootDomainName}`}</option>
+
+                                            })}
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label className="label">Subdomain name</label>
+                                        <div className="control">
+                                            {
+                                                state.domainNameExistsChecked && state.tenant.subDomainName && state.regionChosen
+                                                    ?
+                                                    <div>
+                                                        <input className={`input ${state.chosenDomainNameExists ? 'is-danger' : 'is-success'}`} type="text" placeholder="Enter your preferred subdomain name. Must be available for the Region chosen" name="subDomainName" value={state.tenant.subDomainName!} onChange={onChange} required />
+                                                        <p className={`help ${state.chosenDomainNameExists ? 'is-danger' : 'is-success'}`}>Your chosen domain name {state.tenant.subDomainName && state.regionChosen ? `${state.tenant.subDomainName}.${state.regionChosen.rootDomainName}` : ''} {state.chosenDomainNameExists ? 'is unavailable' : 'is available'}</p>
+                                                    </div>
+                                                    :
+                                                    <input className="input" type="text" placeholder="Enter your preferred subdomain name. Must be available for the Region chosen" name="subDomainName" value={state.tenant.subDomainName!} onChange={onChange} required />
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div className="field">
+                                        <button className="button" disabled={state.tenant.subDomainName && state.regionChosen ? false : true} onClick={checkIfChosenDomainNameExists}>Check Availability</button>
+                                    </div>
+                                </div>}
+
                             <div className="field">
                                 <label className="label">Address</label>
                                 <div className="control">
@@ -154,6 +256,11 @@ const AddTenant: React.FC<Props> = (props) => {
                                         <input name="primaryEmailAddress" className="input" type="email" placeholder="Enter valid email here" maxLength={30} value={state.tenant.primaryContact!.primaryEmailAddress} onChange={onPrimaryContactChange} required />
                                     </div>
                                     <p className="help">The email address should not be more than 30 letters</p>
+                                </div>
+                                <div className="field">
+                                    <div className="control">
+                                        <span><input type="checkbox" name="isPrimaryEmailAddressVerified" value="" checked={state.tenant.primaryContact!.isPrimaryEmailAddressVerified} onChange={isPrimaryEmailAddressVerifiedChange} />&nbsp;Primary Email Address Verified?</span>
+                                    </div>
                                 </div>
                                 <div className="field">
                                     <label className="label">Password</label>

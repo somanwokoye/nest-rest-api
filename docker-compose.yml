@@ -4,7 +4,7 @@ services:
     container_name: postgres2
     image: postgres:latest
     ports:
-    - "5433:5432"
+    - "5434:5432"
     volumes:
     - /Users/piusonobhayedo/data/postgres:/data/postgres
     env_file:

@@ -5,6 +5,8 @@ import { NestFactory } from '@nestjs/core';
  */
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { join } from 'path';
+import { readFileSync } from "fs";
+import * as path from "path";
 
 //Below is for file upload.
 import fmp from 'fastify-multipart'
@@ -19,24 +21,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 //see https://github.com/nestjs/swagger/issues/891#issuecomment-686283228
 //import * as FastifyFormBody from 'fastify-formbody';
 
-/** attempt to use fastifySecureSession. Not yet supported by NestJS fastify */
-/*
-import fs from 'fs';
-import path from 'path';
 import fastifySecureSession from 'fastify-secure-session';
-*/
-
-
-import fcookie from 'fastify-cookie'; // a dependency of fastify-session below
-import fastifySession from 'fastify-session';
-import passport from 'passport';
-
-
-/*
-import session from 'express-session';
-import passport from 'passport';
-*/
-
 
 async function bootstrap() {
 
@@ -52,7 +37,7 @@ async function bootstrap() {
       ignoreTrailingSlash: false,
       bodyLimit: 1048576, caseSensitive: true,
       maxParamLength: 512,
-      
+
     }),
     //enable cors. Instead of simply setting to true which will use default config values, I am setting to object where I can set config values
     //see configuration options at the URL https://github.com/expressjs/cors#configuration-options
@@ -66,22 +51,6 @@ async function bootstrap() {
       //bodyParser: false //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
     }
   );
-
-  app.register(fcookie); //a dependency for fastifySession below
-  app.register(fastifySession, {
-    cookieName: 'sessionId',
-    secret: 'a secret with minimum length of 32 characters',
-    cookie: {
-      secure: false, //if using https, set this to true
-      httpOnly: true,
-      //expires: 1800000,
-      maxAge: 30 * 60 * 1000,
-    },
-
-  });
-
-  /*app.use(passport.initialize());
-  app.use(passport.session());*/
 
   //Part of temporary workaround for the problem: FastifyError: Unsupported Media Type: application/x-www-form-urlencoded
 
@@ -120,6 +89,15 @@ async function bootstrap() {
     templates: join(__dirname, '..', 'views'),
   });
 
+  app.register(fastifySecureSession, {
+    cookieName: 'tmm-session-cookie',
+    key: readFileSync(path.join(__dirname, '../', 'secret-key')),
+    cookie: {
+      //path: '/'
+      // options for setCookie, see https://github.com/fastify/fastify-cookie
+    }
+  });
+
   //register fastify-multipart
   app.register(fmp);
 
@@ -147,30 +125,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
 
-  //app.register(fastifySecureSession, {key: fs.readFileSync(path.join(__dirname, 'secret-key'))});
-
-
-
-  /* Below also has not worked for NestJS Fastify
-  app.use(session({
-    //store: new MongoStore({ url: process.env.MONGODB_URL}), // where session will be stored
-    secret: 'process.env.SESSION_SECRETsfddfdfdsffd', // to sign session id
-    resave: false, // will default to false in near future: https://github.com/expressjs/session#resave
-    saveUninitialized: false, // will default to false in near future: https://github.com/expressjs/session#saveuninitialized
-    rolling: true, // keep session alive
-    cookie: {
-      maxAge: 30 * 60 * 1000, // session expires in 1hr, refreshed by `rolling: true` option.
-      httpOnly: true, // so that cookie can't be accessed via client-side script
-    }
-  }));
-
-  app.use(passport.initialize());
-  app.use(passport.session());
-  */
 
   //await app.listen(3000);
   //For fastify, include 0.0.0.0 to listen on all IPs on the system. Otherwise, fastify will only listen on localhost.
-  await app.listen(3003, '0.0.0.0');
+  await app.listen(3001, '0.0.0.0');
 
   //More NOTES about fastify use: See https://docs.nestjs.com/techniques/performance for redirect and options
   console.log(`Application is running on: ${await app.getUrl()}`);

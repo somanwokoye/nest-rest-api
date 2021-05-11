@@ -6,7 +6,12 @@ import Mail from 'nodemailer/lib/mailer';
 See https://www.npmjs.com/package/dotenv.
 It is used to get the particulars of Gmail account for SMTP mailer
 */
-require('dotenv').config({ path: 'thirdparty.env' });
+//require('dotenv').config({ path: 'thirdparty.env' }); //no more using this. I have combined it with .env
+
+//Better to use only the parsed env variables rather than keep calling process.env which is more expensive
+import dotenv from 'dotenv';
+//load and export parsedEnv for use in other modules
+export const parsedEnv = dotenv.config().parsed; //only load what has been parsed from .env file
 
 //user management
 export const PASSWORD_RESET_EXPIRATION = 86400000 * 2 //24 hours * 2 in milliseconds
@@ -40,8 +45,8 @@ export const smtpTransport: Mail = nodemailer.createTransport(nodemailerOptions)
 const nodemailerOptionsGmail = {
     service: 'gmail',
     auth: {
-        user: process.env.SMTPUSER,
-        pass: process.env.SMTPPWORD
+        user: parsedEnv.SMTPUSER,
+        pass: parsedEnv.SMTPPWORD
     }
 }
 
@@ -107,16 +112,16 @@ export const PROTOCOL: "https" | "http" = "http";
 
 //For JWT
 export const jwtConstants = {
-    SECRET: process.env.SECRET_KEY,
-    SECRET_KEY_EXPIRATION: parseInt(process.env.SECRET_KEY_EXPIRATION),//integer value is read as seconds. string value with no unit specified, is read as millisecs. See https://www.npmjs.com/package/jsonwebtoken for units
-    REFRESH_SECRET: process.env.REFRESH_SECRET,
-    REFRESH_SECRET_KEY_EXPIRATION: process.env.REFRESH_SECRET_KEY_EXPIRATION
+    SECRET: parsedEnv.SECRET_KEY,
+    SECRET_KEY_EXPIRATION: parseInt(parsedEnv.SECRET_KEY_EXPIRATION),//integer value is read as seconds. string value with no unit specified, is read as millisecs. See https://www.npmjs.com/package/jsonwebtoken for units
+    REFRESH_SECRET: parsedEnv.REFRESH_SECRET,
+    REFRESH_SECRET_KEY_EXPIRATION: parsedEnv.REFRESH_SECRET_KEY_EXPIRATION
 
 };
 
 export const fbConstants = {
-    APP_ID: process.env.APP_ID,
-    APP_SECRET: process.env.APP_SECRET,
+    APP_ID: parsedEnv.APP_ID,
+    APP_SECRET: parsedEnv.APP_SECRET,
     CALLBACK_URL: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/facebook/redirect`: `http://localhost:3003/auth/facebook/redirect`,
     SCOPE:'email, user_gender, user_birthday, ', //see https://developers.facebook.com/docs/permissions/reference for possibilities
     PROFILE_FIELDS:['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
@@ -124,10 +129,10 @@ export const fbConstants = {
 }
 
 export const googleConstants = {
-    GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER: process.env.GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER,
-    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
-    GOOGLE_OAUTH2_CLIENT_ID: process.env.GOOGLE_OAUTH2_CLIENT_ID,
-    GOOGLE_OAUTH2_CLIENT_SECRET: process.env.GOOGLE_OAUTH2_CLIENT_SECRET,
+    GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER: parsedEnv.GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER,
+    GOOGLE_API_KEY: parsedEnv.GOOGLE_API_KEY,
+    GOOGLE_OAUTH2_CLIENT_ID: parsedEnv.GOOGLE_OAUTH2_CLIENT_ID,
+    GOOGLE_OAUTH2_CLIENT_SECRET: parsedEnv.GOOGLE_OAUTH2_CLIENT_SECRET,
     GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/google/redirect`: `http://localhost:3003/auth/google/redirect`,
     GOOGLE_OAUTH2_SCOPE: 'openid profile email https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/profile.agerange.read',//see https://developers.google.com/people/api/rest/v1/people/get under Authorization Scopes section
     CREATE_USER_IF_NOT_EXISTS: true

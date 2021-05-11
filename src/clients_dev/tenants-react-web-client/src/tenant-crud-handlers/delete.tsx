@@ -1,4 +1,4 @@
-import { IAction } from "../app.interfaces";
+import { IAction } from "../global/app.interfaces";
 
 export const handleDeleteTenant = async (id: number | string, dispatch: React.Dispatch<IAction>) => {
     //You can optionally send an alert at the beginning of this function, in case it takes long to finish.

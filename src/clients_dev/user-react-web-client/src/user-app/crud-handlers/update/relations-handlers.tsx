@@ -13,7 +13,6 @@ export class RelationsHandlers {
     public static getAssignableRoles = async (state: IEditUserState, setState: React.Dispatch<React.SetStateAction<IEditUserState>>) => {
 
         try {
-
             const response = await fetch(`${API_VERSION_URL}/roles`,
                 {
                     method: 'GET',//notice the method

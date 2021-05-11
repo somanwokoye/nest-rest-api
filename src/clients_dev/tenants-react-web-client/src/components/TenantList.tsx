@@ -1,5 +1,5 @@
 import React from 'react';
-import { ITenant } from '../app.interfaces';
+import { ITenant } from '../global/app.interfaces';
 import Tenant from './Tenant';
 import TenantListHeader from './TenantListHeader';
 
@@ -9,12 +9,12 @@ type Props = {
     tenants: ITenant[],
 }
 
-const TenantList: React.FC<Props> = (props) => {
+const TenantList: React.FC<Props> = ({tenants}) => {
 
     //prepare tenants for display in a table
     let tenantListRows:any = null;
     
-    tenantListRows = props.tenants.map((tenant) => {
+    tenantListRows = tenants.map((tenant) => {
         return <Tenant tenant={tenant} key={tenant.id}/>
     })
     

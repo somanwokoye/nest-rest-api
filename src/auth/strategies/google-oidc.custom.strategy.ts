@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { Client, generators, Issuer, TokenSet, UserinfoResponse } from "openid-client";
 import { googleConstants } from "src/global/app.settings";
 import { Request } from '../../global/custom.interfaces';
@@ -36,7 +36,7 @@ export class GoogleOidcCustomStrategy {
 
         //const client = await this.buildOpenIdClient();
         const code_verifier = generators.codeVerifier();
-        req.session.code_verifier = code_verifier;
+        req.session.set('code_verifier', code_verifier);
         //console.log(req.session['code_verifier']);
         const code_challenge = generators.codeChallenge(code_verifier);
 
@@ -58,7 +58,7 @@ export class GoogleOidcCustomStrategy {
     async processCallBack(req: any) {
         const params = this.client.callbackParams(req);
         //console.log(req.session['code_verifier']);
-        const tokenSet = await this.client.callback(googleConstants.GOOGLE_OAUTH2_REDIRECT_URI, params, { code_verifier: req.session['code_verifier'] }) // => Promise
+        const tokenSet = await this.client.callback(googleConstants.GOOGLE_OAUTH2_REDIRECT_URI, params, { code_verifier: req.session.get('code_verifier') }) // => Promise
 
         return await this.validate(tokenSet);
 

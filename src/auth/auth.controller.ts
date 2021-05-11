@@ -10,7 +10,9 @@ import { LandlordAdminAuth } from './decorators/landlord-admin-auth.decorator';
 import FacebookAuthGuard from './guards/facebook-auth.guard';
 import { GoogleOidcCustomStrategy } from './strategies/google-oidc.custom.strategy';
 import { GoogleProfileDto } from './dtos/google-profile.dto';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
 

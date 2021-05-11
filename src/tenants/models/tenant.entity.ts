@@ -7,24 +7,37 @@ import { User } from "../../users/models/user.entity";
 import { TenantStatus } from "../../global/custom.interfaces";
 import { TenantTeam } from "./tenant-team";
 import { TenantAccountOfficer } from "./tenant-account-officer";
-import { ConnectionResource } from "../../connection-resources/models/connection-resource.entity";
+import { TenantConfigDetail } from "../../tenant-config-details/entities/tenant-config-detail.entity";
+import { parsedEnv } from "../../global/app.settings";
 
 
 @Entity()
+@Index(["subDomainName", "regionRootDomainName"], { unique: true })
 export class Tenant extends BaseAbstractEntity{
     
     @Generated("uuid")
+    @Column()
     uuid: string;
 
-    @Column({unique: true})//used for default URL Slug
-    @Index()
-    uniqueName: string
+    @Column({nullable: true})//A general name for the tenant.
+    name: string;
+
+    @Column({nullable: true})//used for default URL Slug e.g. tenant1.r1.peakharmony.com where r1.peakharmony.com is from the region chosen by the tenant.
+    subDomainName: string; 
+
+    //Could not set this as both nullable and unique. With two nulls, there will be constraint violation. Solution is to handle check separately
+    //e.g. piosystems.com
+    @Column({unique: true, nullable: true})
+    customURLSlug: string
 
     @Column()
-    address: string
+    address: string;
 
     @Column({nullable: true})
-    moreInfo: string
+    moreInfo: string;
+
+    @Column()
+    dateOfRegistration: Date;
 
     @Column({nullable: true})
     logo: string; //logo file location. Use stream to send
@@ -32,14 +45,11 @@ export class Tenant extends BaseAbstractEntity{
     @Column({ nullable: true })
     logoMimeType: string; //save the encoding of uploaded file for content-type use for reply.type as shown above
 
-    @Column({default: false})
-    active: boolean
-
-    @Column()
-    dateOfRegistration: Date
-
     @Column({type: 'enum', enum: TenantStatus, default: TenantStatus[TenantStatus.A]})
     status: TenantStatus;
+
+    @Column({default: false})
+    active: boolean; //For quick info about whether active or not. More status details in status above
 
     @ManyToOne(type => User, user => user.primaryContactForWhichTenants, {cascade: true, onUpdate: "CASCADE"})
     primaryContact: User
@@ -59,10 +69,6 @@ export class Tenant extends BaseAbstractEntity{
     @Column({default: true})
     uniqueSchema: boolean
 
-    //Could not set this as both nullable and unique. With two nulls, there will be constraint violation. Solution is to handle check separately
-    @Column({unique: true, nullable: true})
-    customURLSlug: string
-
     @ManyToMany(type => Theme, theme => theme.tenants)
     themes: Theme[]
 
@@ -70,7 +76,20 @@ export class Tenant extends BaseAbstractEntity{
     billings: Billing[] //notice the array here
 
     //Connection for this tenant
+    /*
     @OneToOne(type => ConnectionResource, connectionResource => connectionResource.tenant)
     connectionResource: ConnectionResource;
+    */
+
+    //Config details for tenant
+    //Connection for this tenant
+    @OneToOne(type => TenantConfigDetail, tenantConfigDetail => tenantConfigDetail.tenant)
+    tenantConfigDetail: TenantConfigDetail;
+
+    @Column({default: parsedEnv.DEFAULT_REGION_NAME})
+    regionName: string; //denomalized region unique name called getTenantsByRegionName in tenants service
+
+    @Column({default: parsedEnv.DEFAULT_REGION_ROOT_DOMAIN_NAME})
+    regionRootDomainName: string; //denomalized so as to set up unique index with tenant name. So tenantName.rootDomainName cannot be the repeated
 
 }

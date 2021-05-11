@@ -25,9 +25,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         cache: {
           type: "ioredis",
           options: {
-              host: "localhost",
-              port: 6379
-          }
+            host: process.env.REDIS_HOST,
+            port: process.env.REDIS_PORT,
+            password: process.env.REDIS_PASSWORD,
+            //sentinels: JSON.parse(process.env.REDIS_SENTINELS || `[{ "host": "localhost", "port": 26379 }, { "host": "localhost", "port": 26380 }, { "host": "localhost", "port": 26381 }]`),
+            name: 'mymaster',
+            timeout: 10000,
+            database: 3
+            //retryStrategy: (times: number) => Math.min(times * 50, 2000)
+        }
       }
       })
     })

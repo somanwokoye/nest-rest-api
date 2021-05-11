@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 //import './index.css';
 import App from './App';
-import { IState } from './app.interfaces';
+import { IState } from './global/app.interfaces';
 import * as serviceWorker from './serviceWorker';
 
 /* For server side rendering support, we need to use hydrate.

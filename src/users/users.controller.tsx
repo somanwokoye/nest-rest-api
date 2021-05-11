@@ -146,7 +146,7 @@ export class UsersController {
     @ApiOkResponse({ description: 'Rendered web page is returned.' })
     @ApiInternalServerErrorResponse({ description: 'Internal server error' })
     @Get('web*')
-    async web(@Res() reply: Reply, @Req() req: Request) {
+    web(@Res() reply: Reply, @Req() req: Request) {
         try {
             //We want to render the raw way so that we can call renderToStream
             const res = reply.raw;

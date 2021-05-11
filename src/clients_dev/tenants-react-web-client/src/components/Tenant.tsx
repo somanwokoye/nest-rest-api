@@ -1,7 +1,7 @@
 /** This component is for displaying each item in the record, passed to it from TenantList */
 import React, { useContext } from 'react';
-import { ITenant } from '../app.interfaces';
-import { AppContext } from '../App';
+import { ITenant } from '../global/app.interfaces';
+import { AppContext } from '../contexts/app.contexts';
 
 type Props = {
     tenant: ITenant,
@@ -29,7 +29,7 @@ const Tenant: React.FC<Props> = ({tenant}) => {
 
     return (
         <tr>
-            <td>{tenant.uniqueName}</td>
+            <td>{tenant.subDomainName}.{tenant.regionRootDomainName}</td>
             <td>{tenant.primaryContact?.firstName}</td>
             <td>{tenant.primaryContact?.lastName}</td>
             <td>{tenant.primaryContact?.primaryEmailAddress}</td>

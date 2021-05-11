@@ -1,4 +1,4 @@
-import { IAction, ITenant } from "../app.interfaces";
+import { IAction, ITenant } from "../global/app.interfaces";
 
 //function that handles Create Tenant
 export const handleCreateTenant = async (tenantToCreate: ITenant, createPrimaryContact: boolean, dispatch: React.Dispatch<IAction>) => {

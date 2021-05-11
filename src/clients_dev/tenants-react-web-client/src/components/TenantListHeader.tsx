@@ -9,7 +9,7 @@ const TenantListHeader: React.FC = () => {
   return (
     <thead>
       <tr>
-          <th>Unique Name</th>
+          <th>Default Domain Name</th>
           <th>Contact First Name</th>
           <th>Contact Last Name</th>
           <th>Contact Email</th>

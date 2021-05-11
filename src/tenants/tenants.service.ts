@@ -1,10 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 import { InjectConnection, InjectRepository } from '@nestjs/typeorm';
 import { PG_UNIQUE_CONSTRAINT_VIOLATION } from 'src/global/error.codes';
 import { CreateUserDto } from 'src/users/dto/create/create-user.dto';
 import { User } from 'src/users/models/user.entity';
-import { Connection, DeleteResult, InsertResult, Repository, UpdateResult } from 'typeorm';
+import { Connection, createConnection, DeleteResult, getConnection, InsertResult, Repository, UpdateResult } from 'typeorm';
 import { CreateTenantAccountOfficerDto } from './dto/create/create-account-officer.dto';
 import { CreateCustomThemeDto } from './dto/create/create-custom-theme.dto';
 import { CreateTenantTeamDto, CreateTenantTeamRolesDto } from './dto/create/create-tenant-team.dto';
@@ -28,9 +28,13 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, smtpTransport, smtpTransportGmail, USE_API_VERSION_IN_URL } from '../global/app.settings';
+import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, smtpTransportGmail, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
-
+import { CreateTenantConfigDetailDto } from 'src/tenant-config-details/dto/create-tenant-config-detail.dto';
+import { TenantConfigDetail } from 'src/tenant-config-details/entities/tenant-config-detail.entity';
+import { RegionsService } from 'src/regions/regions.service';
+import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
+import Redis from 'ioredis'; //remember to also run npm install -D @types/ioredis
 
 @Injectable()
 export class TenantsService {
@@ -47,34 +51,49 @@ export class TenantsService {
         @InjectRepository(CustomTheme) private customThemeRepository: Repository<CustomTheme>,
         @InjectRepository(Theme) private themeRepository: Repository<Theme>,
         @InjectRepository(Billing) private billingRepository: Repository<Billing>,
+        @InjectRepository(TenantConfigDetail) private tenantConfigDetailRepository: Repository<TenantConfigDetail>,
         @InjectConnection('default')//You can inject connection by name. See https://docs.nestjs.com/techniques/database#multiple-databases
-        private connection: Connection
+        private connection: Connection,
+        private readonly regionsService: RegionsService
     ) { }
 
-    /*CREATE section*/
+    private redisClients: Map<string, Redis.Redis> = new Map(); //maintain connection by regions and get client when needed. Used by getRedisClient below
 
+    /*CREATE section*/
     /**
      * 
      * @param createTenantDto 
      */
     async create(createTenantDto: CreateTenantDto, createPrimaryContact: number, req: Request): Promise<Tenant> {
         try {
+            //tenantConfigDetail needs special creation process. Besides, only do so if primary contact is confirmed.
+            //Therefore,separate the createTenantConfigDetailDto from createTenantDto
+            const { tenantConfigDetail, ...createTenantDtoMod } = createTenantDto;
+            const createTenantConfigDetailDto:CreateTenantConfigDetailDto = tenantConfigDetail;
+            createTenantDto = createTenantDtoMod;
+            //now create the newTenant without the tenantConfigDetail
             const newTenant = this.tenantRepository.create(createTenantDto);
-            if (createPrimaryContact != 1) {//the dto contains all that it takes to create both tenant and primary contact
-                //find the user by primaryEmailAddress and set as Primary Contact
-                console.log(createPrimaryContact)
-                const primaryContact: User = await this.userRepository.findOne({where:{primaryEmailAddress: newTenant.primaryContact.primaryEmailAddress}})
 
-                if (primaryContact){
+            //Update newTenant with region related data before saving
+            //get the regionRootDomainName and set for newTenant. It is a denomalization
+            const region = await this.regionsService.findRegionByName(createTenantDto.regionName);
+            newTenant.regionRootDomainName = region.rootDomainName;
+
+            if (createPrimaryContact != 1) {//the dto primaryContact part contains the email of the user to set as primary contact
+                //find the user by primaryEmailAddress and set as Primary Contact
+                //console.log(createPrimaryContact)
+                const primaryContact: User = await this.userRepository.findOne({ where: { primaryEmailAddress: newTenant.primaryContact.primaryEmailAddress } })
+
+                if (primaryContact) {
                     newTenant.primaryContact = primaryContact
-                }else{
+                } else {
                     throw new HttpException({
                         status: HttpStatus.BAD_REQUEST,
                         error: `There was a problem with tenant creation: Primary contact selected does not exist`,
                     }, HttpStatus.BAD_REQUEST)
                 }
-            }else{ //the dto primaryContact part contains the email of the user to set as primary contact
-                
+            } else { //the dto contains all that it takes to create both tenant and primary contact
+                //note that the primary contact user will be cascade created. So hash the password before.
                 if (newTenant.primaryContact != null) {
                     await bcrypt.hash(newTenant.primaryContact.passwordHash, 10).then((hash: string) => {
                         newTenant.primaryContact.passwordHash = hash
@@ -86,15 +105,19 @@ export class TenantsService {
             const tenant = await this.tenantRepository.save(newTenant);
 
             //if primary contact was created, check the email and send verification message
-            //check if user primary email and then provoke verification process
-            if(createPrimaryContact == 1){
+            //check if user primary email and then provoke verification process, if unverified ab initio
+            if (createPrimaryContact == 1 && !tenant.primaryContact.isPrimaryEmailAddressVerified) {
                 if (tenant.primaryContact != null && tenant.primaryContact.primaryEmailAddress != null) {
                     let user: User = null;
                     user = await this.userRepository.findOne({ where: { primaryEmailAddress: tenant.primaryContact.primaryEmailAddress } });
                     this.sendVerificationEmail(user, req);
                 }
             }
-    
+
+            //At this point, we need to decide whether to create the connection details. Only do so if primary Email Address is Verified
+            if(tenant.primaryContact.isPrimaryEmailAddressVerified)
+                await this.createAndSetTenantConfigDetail(tenant.id,createTenantConfigDetailDto);
+
             return tenant;
 
         } catch (error) {
@@ -116,11 +139,18 @@ export class TenantsService {
 
     //insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
     async insertTenants(tenants: CreateTenantDto[]): Promise<InsertResult> {//tenants is an array of objects
+        //first denomalize the Tenants by getting and inserting the regionRootDomainName 
+        const tenantsToInsert: CreateTenantDto[] = [];
+        tenants.map(async (tenant) => {
+            const region = await this.regionsService.findRegionByName(tenant.regionName);
+            tenant.regionRootDomainName = region.rootDomainName;
+            tenantsToInsert.push(tenant);
+        })
         try {
             return await this.tenantRepository.createQueryBuilder()
                 .insert()
                 .into(Tenant)
-                .values(tenants)
+                .values(tenantsToInsert)
                 .execute();
         } catch (error) {
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -309,6 +339,406 @@ export class TenantsService {
 
     }
 
+    async findActiveTenantsByRegionName(regionName: string): Promise<[Tenant[], number]> {
+
+        return await this.tenantRepository.createQueryBuilder("tenant")
+            .leftJoinAndSelect("tenant.tenantConfigDetail", "tenantConfigDetail")
+            .where("tenant.active = :active", { active: true })
+            .andWhere("tenant.regionName = :regionName", { regionName })
+            .getManyAndCount()
+
+    }
+
+    async findTenantsByRegionName(regionName: string): Promise<[Tenant[], number]> {
+
+        return await this.tenantRepository.createQueryBuilder("tenant")
+            .leftJoinAndSelect("tenant.tenantConfigDetail", "tenantConfigDetail")
+            .where("tenant.regionName = :regionName", { regionName })
+            .getManyAndCount()
+
+    }
+
+    //Pius-note: For scalability, this should really be a microservice of its own, running in another process, reading from the same database as TMM
+    //called by setTenantPropertiesInRedisByRegionName below
+    async getTenantPropertiesByRegionName(regionName: string) {
+
+        const properties = [];
+
+        //region is needed for default values
+        const region = await this.regionsService.findRegionByName(regionName);
+        const [tenants] = await this.findActiveTenantsByRegionName(regionName);
+        tenants.map((tenant) => {
+            const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
+            const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
+            const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+            const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
+            const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
+            const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
+            const fbOauth2Constants = tenant.tenantConfigDetail.fbOauth2Constants == null ? region.fbOauth2Constants : tenant.tenantConfigDetail.fbOauth2Constants;
+            const googleOidcConstants = tenant.tenantConfigDetail.googleOidcConstants == null ? region.googleOidcConstants : tenant.tenantConfigDetail.googleOidcConstants;
+            const sizeLimits = tenant.tenantConfigDetail.sizeLimits == null ? region.sizeLimits : tenant.tenantConfigDetail.sizeLimits;
+            const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
+            const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
+            const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
+            const logo = tenant.tenantConfigDetail.logo;
+
+            const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+            const customURLSlug: string = tenant.customURLSlug;
+            const uniqueName: string = `${tenant.subDomainName}.${tenant.regionRootDomainName}`;
+
+            const tenantConfigDetailRedisProperties = tenant.tenantConfigDetail.redisProperties; //this is just for test in setTenantProperties... below
+
+            properties.push({
+                dbProperties, redisProperties, mailerOptions, otherUserOptions, jwtConstants,
+                authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
+                theme, rootFileSystem, logo, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
+            });
+
+        });
+        return properties;
+    }
+
+    /**
+     * To be called when there is need to set properties in a region's SaaS redis, e.g. if restarted and persistence storage was lost
+     * It will mset one tenant at a time for the client connection
+     * NOTE: This should really be in a microservice of its own.
+     * @param regionName 
+     */
+    async setTenantPropertiesInRedisByRegionName(regionName: string) {
+
+        const properties = await this.getTenantPropertiesByRegionName(regionName);
+
+        properties.map(async (prop) => {
+
+            //Get client connection to Redis
+            //As sentinels in db was set as string, first convert to proper object format
+            let sentinels: { host: string, port: number }[] | null = null;
+            if (prop.redisProperties.sentinels != undefined) {
+                sentinels = JSON.parse(prop.redisProperties.sentinels)
+                //redisPropertiesMod = { ...redisProperties, sentinels }
+            }
+            //use region name if no tenant specific client
+            const redisClientName = prop.tenantConfigDetailRedisProperties == null ? regionName : regionName + "_" + prop.tenantUniquePrefix
+            const redisClient = await this.getRedisClient(redisClientName, { ...prop.redisProperties, sentinels }); //replace sentinels with properly formatted one.
+
+            //if sentinels was set as { host: string, port: number }[] | null in database
+            //const redisClient = this.regionsService.getRedisClient(regionUniqueName, redisProperties)
+
+            /*I could do below for setting properties in redis by creating a Map and putting all the settings there 
+            and then pass the Map variable to redis client using mset e.g. 
+            const redisSettings = new Map<string, Redis.ValueType>()
+            redisSettings.set(`${tenantUniquePrefix}POSTGRES_HOST`, dbProperties.host);
+            const runRedisSet = redisClientReturned.mset(redisSettings);
+            */
+
+            //Alternative way to call mset without first creating a Map
+            await redisClient.mset({
+
+                [prop.uniqueName]: prop.tenantUniquePrefix,
+                [prop.customURLSlug]: prop.tenantUniquePrefix,
+                [`${prop.tenantUniquePrefix}POSTGRES_HOST`]: prop.dbProperties.host,
+                [`${prop.tenantUniquePrefix}POSTGRES_PORT`]: prop.dbProperties.port,
+                [`${prop.tenantUniquePrefix}POSTGRES_USER`]: prop.dbProperties.username,
+                [`${prop.tenantUniquePrefix}POSTGRES_PASSWORD`]: prop.dbProperties.password,
+                [`${prop.tenantUniquePrefix}POSTGRES_DB`]: prop.dbProperties.database,
+                [`${prop.tenantUniquePrefix}POSTGRES_SCHEMA`]: prop.tenantUniquePrefix,
+                [`${prop.tenantUniquePrefix}POSTGRES_SSL_CA`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.ca : null,
+                [`${prop.tenantUniquePrefix}POSTGRES_SSL_KEY`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.key : null,
+                [`${prop.tenantUniquePrefix}POSTGRES_SSL_CERT`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.cert : null,
+                [`${prop.tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
+
+                [`${prop.tenantUniquePrefix}SMTP_USER`]: prop.mailerOptions.smtpUser,
+                [`${prop.tenantUniquePrefix}SMTP_PWORD`]: prop.mailerOptions.smtpPword,
+                [`${prop.tenantUniquePrefix}SMTP_SERVICE`]: prop.mailerOptions.smtpService,
+                [`${prop.tenantUniquePrefix}SMTP_SECURE`]: prop.mailerOptions.smtpSecure ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}SMTP_SERVER`]: prop.mailerOptions.smtpServer,
+                [`${prop.tenantUniquePrefix}SMTP_PORT`]: prop.mailerOptions.smtpPort,
+
+                [`${prop.tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: prop.otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
+                [`${prop.tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: prop.otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
+                [`${prop.tenantUniquePrefix}PASSWORD_RESET_EXPIRATION`]: prop.otherUserOptions.passwordResetExpiration,
+                [`${prop.tenantUniquePrefix}EMAIL_VERIFICATION_EXPIRATION`]: prop.otherUserOptions.emailVerificationExpiration,
+
+                [`${prop.tenantUniquePrefix}JwtConstants_SECRET`]: prop.jwtConstants.jwtSecretKey,
+                [`${prop.tenantUniquePrefix}JwtConstants_SECRET_KEY_EXPIRATION`]: prop.jwtConstants.jwtSecretKeyExpiration,
+                [`${prop.tenantUniquePrefix}JwtConstants_REFRESH_SECRET`]: prop.jwtConstants.jwtRefreshSecret,
+                [`${prop.tenantUniquePrefix}JwtConstants_REFRESH_SECRET_KEY_EXPIRATION`]: prop.jwtConstants.jwtRefreshSecretKeyExpiration,
+                [`${prop.tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY`]: prop.jwtConstants.jwtSecretPrivateKey,
+                [`${prop.tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY_PASSPHRASE`]: prop.jwtConstants.jwtSecretPrivateKeyPassphrase,
+                [`${prop.tenantUniquePrefix}JwtConstants_SECRET_PUBLIC_KEY`]: prop.jwtConstants.jwtSecretPublicKey,
+                [`${prop.tenantUniquePrefix}JwtConstants_SIGN_ALGORITHM`]: prop.jwtConstants.jwtSignAlgorithm,
+
+                [`${prop.tenantUniquePrefix}AuthEnabled_Google`]: prop.authEnabled.google ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}AuthEnabled_Facebook`]: prop.authEnabled.facebook ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}AuthEnabled_TwoFactor`]: prop.authEnabled.twoFactor ? 'true' : 'false',
+
+                [`${prop.tenantUniquePrefix}FBConstants_APP_ID`]: prop.fbOauth2Constants ? prop.fbOauth2Constants.fBAppId : null,
+                [`${prop.tenantUniquePrefix}FBConstants_APP_SECRET`]: prop.fbOauth2Constants ? prop.fbOauth2Constants.fBAppSecret : null,
+                [`${prop.tenantUniquePrefix}FBConstants_CREATE_USER_IF_NOT_EXISTS`]: prop.fbOauth2Constants ? (prop.fbOauth2Constants.createUserIfNotExists ? 'true' : 'false') : null,
+
+                [`${prop.tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER`]: prop.googleOidcConstants ? prop.googleOidcConstants.googleOauth2ClientOidcIssuer : null,
+                [`${prop.tenantUniquePrefix}GoogleConstants_GOOGLE_API_KEY`]: prop.googleOidcConstants ? prop.googleOidcConstants.googleApiKey : null,
+                [`${prop.tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_SECRET`]: prop.googleOidcConstants ? prop.googleOidcConstants.googleOauth2ClientSecret : null,
+                [`${prop.tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_ID`]: prop.googleOidcConstants ? prop.googleOidcConstants.googleOauth2ClientId : null,
+                [`${prop.tenantUniquePrefix}GoogleConstants_CREATE_USER_IF_NOT_EXISTS`]: prop.googleOidcConstants ? (prop.googleOidcConstants.createUserIfNotExists ? 'true' : 'false') : null,
+
+                [`${prop.tenantUniquePrefix}LOGO_FILE_SIZE_LIMIT`]: prop.sizeLimits.logoFileSizeLimit,
+                [`${prop.tenantUniquePrefix}PHOTO_FILE_SIZE_LIMIT`]: prop.sizeLimits.photoFileSizeLimit,
+                [`${prop.tenantUniquePrefix}GENERAL_FILE_SIZE_LIMIT`]: prop.sizeLimits.generalFileSizeLimit,
+
+                [`${prop.tenantUniquePrefix}ELASTICSEARCH_NODE`]: prop.elasticSearchProperties.node,
+                [`${prop.tenantUniquePrefix}ELASTICSEARCH_USERNAME`]: prop.elasticSearchProperties.username,
+                [`${prop.tenantUniquePrefix}ELASTICSEARCH_PASSWORD`]: prop.elasticSearchProperties.password,
+
+                [`${prop.tenantUniquePrefix}Theme_Custom`]: prop.theme.custom ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}Theme_Type`]: prop.theme.type,
+                [`${prop.tenantUniquePrefix}Theme_RootUrl`]: prop.theme.rootUrl,
+
+                [`${prop.tenantUniquePrefix}Upload_Root_FileSystem`]: prop.rootFileSystem.path, //to be removed when I have adjusted client to use the second below
+                [`${prop.tenantUniquePrefix}Root_FileSystem_Path`]: prop.rootFileSystem.path,
+                [`${prop.tenantUniquePrefix}Root_FileSystem_Username`]: prop.rootFileSystem.username,
+                [`${prop.tenantUniquePrefix}Root_FileSystem_Password`]: prop.rootFileSystem.password,
+
+                [`${prop.tenantUniquePrefix}Logo_FileName`]: prop.logo ? prop.logo.fileName : null,
+                [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logo ? prop.logo.mimeType : null
+
+            });
+
+            if (prop.tenantConfigDetailRedisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+
+        })
+
+    }
+
+
+    /**
+     * To be called when there is need to unset properties of a tenant in a region's SaaS redis, e.g. A hard way to disable a tenant
+     * NOTE: This should really be in a microservice of its own.
+     * @param tenantId 
+     */
+    async unsetTenantPropertiesInRedisByTenantId(tenantId: number) {
+
+        const tenant = await this.tenantRepository.createQueryBuilder('tenant')
+            .leftJoinAndSelect("tenant.tenantConfigDetail", 'tenantConfigDetail')
+            .where('tenant.id = :tenantId', { tenantId })
+            .getOne()
+
+        const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+
+        const region = await this.regionsService.findRegionByName(tenant.regionName);
+
+        const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
+
+        //Get client connection to Redis
+        //As sentinels in db was set as string, first convert to proper object format
+
+        let sentinels: { host: string, port: number }[] | null = null;
+        if (redisProperties.sentinels != undefined) {
+            sentinels = JSON.parse(redisProperties.sentinels)
+            //redisPropertiesMod = { ...redisProperties, sentinels }
+        }
+
+        //use region name if no tenant specific client
+        const redisClientName = tenant.tenantConfigDetail.redisProperties == null ? tenant.regionName : tenant.regionName + "_" + tenantUniquePrefix
+        const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, sentinels }); //replace sentinels with properly formatted one.
+
+        //if sentinels was set as { host: string, port: number }[] | null in database
+        //const redisClient = this.regionsService.getRedisClient(redisClientName, redisProperties)
+
+        await redisClient.del([
+            `${tenant.subDomainName}.${tenant.regionRootDomainName}`,
+            tenant.customURLSlug,
+            `${tenantUniquePrefix}POSTGRES_HOST`,
+            `${tenantUniquePrefix}POSTGRES_PORT`,
+            `${tenantUniquePrefix}POSTGRES_USER`,
+            `${tenantUniquePrefix}POSTGRES_PASSWORD`,
+            `${tenantUniquePrefix}POSTGRES_DB`,
+            `${tenantUniquePrefix}POSTGRES_SCHEMA`,
+            `${tenantUniquePrefix}POSTGRES_SSL_CA`,
+            `${tenantUniquePrefix}POSTGRES_SSL_KEY`,
+            `${tenantUniquePrefix}POSTGRES_SSL_CERT`,
+            `${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`,
+
+            `${tenantUniquePrefix}SMTP_USER`,
+            `${tenantUniquePrefix}SMTP_PWORD`,
+            `${tenantUniquePrefix}SMTP_SERVICE`,
+            `${tenantUniquePrefix}SMTP_SECURE`,
+            `${tenantUniquePrefix}SMTP_SERVER`,
+            `${tenantUniquePrefix}SMTP_PORT`,
+
+            `${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`,
+            `${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`,
+            `${tenantUniquePrefix}PASSWORD_RESET_EXPIRATION`,
+            `${tenantUniquePrefix}EMAIL_VERIFICATION_EXPIRATION`,
+
+            `${tenantUniquePrefix}JwtConstants_SECRET`,
+            `${tenantUniquePrefix}JwtConstants_SECRET_KEY_EXPIRATION`,
+            `${tenantUniquePrefix}JwtConstants_REFRESH_SECRET`,
+            `${tenantUniquePrefix}JwtConstants_REFRESH_SECRET_KEY_EXPIRATION`,
+            `${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY`,
+            `${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY_PASSPHRASE`,
+            `${tenantUniquePrefix}JwtConstants_SECRET_PUBLIC_KEY`,
+            `${tenantUniquePrefix}JwtConstants_SIGN_ALGORITHM`,
+
+            `${tenantUniquePrefix}AuthEnabled_Google`,
+            `${tenantUniquePrefix}AuthEnabled_Facebook`,
+            `${tenantUniquePrefix}AuthEnabled_TwoFactor`,
+
+            `${tenantUniquePrefix}FBConstants_APP_ID`,
+            `${tenantUniquePrefix}FBConstants_APP_SECRET`,
+            `${tenantUniquePrefix}FBConstants_CREATE_USER_IF_NOT_EXISTS`,
+
+            `${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER`,
+            `${tenantUniquePrefix}GoogleConstants_GOOGLE_API_KEY`,
+            `${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_SECRET`,
+            `${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_ID`,
+            `${tenantUniquePrefix}GoogleConstants_CREATE_USER_IF_NOT_EXISTS`,
+
+            `${tenantUniquePrefix}LOGO_FILE_SIZE_LIMIT`,
+            `${tenantUniquePrefix}PHOTO_FILE_SIZE_LIMIT`,
+            `${tenantUniquePrefix}GENERAL_FILE_SIZE_LIMIT`,
+
+            `${tenantUniquePrefix}ELASTICSEARCH_NODE`,
+            `${tenantUniquePrefix}ELASTICSEARCH_USERNAME`,
+            `${tenantUniquePrefix}ELASTICSEARCH_PASSWORD`,
+
+            `${tenantUniquePrefix}Theme_Custom`,
+            `${tenantUniquePrefix}Theme_Type`,
+            `${tenantUniquePrefix}Theme_RootUrl`,
+
+            `${tenantUniquePrefix}Upload_Root_FileSystem`,
+            `${tenantUniquePrefix}Root_FileSystem_Path`,
+            `${tenantUniquePrefix}Root_FileSystem_Username`,
+            `${tenantUniquePrefix}Root_FileSystem_Password`,
+
+            `${tenantUniquePrefix}Logo_FileName`,
+            `${tenantUniquePrefix}Logo_Mimetype`
+        ]);
+
+        if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+    }
+
+    /**
+     * To be called when there is need to set properties of a tenant in a region's SaaS redis, e.g. A way to onboard a formally unset tenant a tenant
+     * NOTE: This should really be in a microservice of its own.
+     * @param tenantId 
+     */
+    async setTenantPropertiesInRedisByTenantId(tenantId: number) {
+
+        const tenant = await this.tenantRepository.createQueryBuilder('tenant')
+            .leftJoinAndSelect("tenant.tenantConfigDetail", 'tenantConfigDetail')
+            .where('tenant.id = :tenantId', { tenantId })
+            .getOne()
+
+        const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+
+        const region = await this.regionsService.findRegionByName(tenant.regionName);
+
+        //Get the properties
+        const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
+        const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
+        const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+        const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
+        const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
+        const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
+        const fbOauth2Constants = tenant.tenantConfigDetail.fbOauth2Constants == null ? region.fbOauth2Constants : tenant.tenantConfigDetail.fbOauth2Constants;
+        const googleOidcConstants = tenant.tenantConfigDetail.googleOidcConstants == null ? region.googleOidcConstants : tenant.tenantConfigDetail.googleOidcConstants;
+        const sizeLimits = tenant.tenantConfigDetail.sizeLimits == null ? region.sizeLimits : tenant.tenantConfigDetail.sizeLimits;
+        const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
+        const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
+        const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
+        const logo = tenant.tenantConfigDetail.logo;
+
+
+        //Get client connection to Redis
+        //As sentinels in db was set as string, first convert to proper object format
+
+        let sentinels: { host: string, port: number }[] | null = null;
+        if (redisProperties.sentinels != undefined) {
+            sentinels = JSON.parse(redisProperties.sentinels)
+            //redisPropertiesMod = { ...redisProperties, sentinels }
+        }
+
+        //use region name if no tenant specific client
+        const redisClientName = tenant.tenantConfigDetail.redisProperties == null ? tenant.regionName : tenant.regionName + "_" + tenantUniquePrefix
+        const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, sentinels }); //replace sentinels with properly formatted one.
+
+        //if sentinels was set as { host: string, port: number }[] | null in database
+        //const redisClient = this.regionsService.getRedisClient(redisClientName, redisProperties)
+
+        await redisClient.mset({
+            [`${tenant.subDomainName}.${tenant.regionRootDomainName}`]: tenantUniquePrefix,
+            [tenant.customURLSlug]: tenantUniquePrefix,
+            [`${tenantUniquePrefix}POSTGRES_HOST`]: dbProperties.host,
+            [`${tenantUniquePrefix}POSTGRES_PORT`]: dbProperties.port,
+            [`${tenantUniquePrefix}POSTGRES_USER`]: dbProperties.username,
+            [`${tenantUniquePrefix}POSTGRES_PASSWORD`]: dbProperties.password,
+            [`${tenantUniquePrefix}POSTGRES_DB`]: dbProperties.database,
+            [`${tenantUniquePrefix}POSTGRES_SCHEMA`]: tenantUniquePrefix,
+            [`${tenantUniquePrefix}POSTGRES_SSL_CA`]: dbProperties.ssl != undefined ? dbProperties.ssl.ca : null,
+            [`${tenantUniquePrefix}POSTGRES_SSL_KEY`]: dbProperties.ssl != undefined ? dbProperties.ssl.key : null,
+            [`${tenantUniquePrefix}POSTGRES_SSL_CERT`]: dbProperties.ssl != undefined ? dbProperties.ssl.cert : null,
+            [`${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: dbProperties.ssl != undefined ? dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
+
+            [`${tenantUniquePrefix}SMTP_USER`]: mailerOptions.smtpUser,
+            [`${tenantUniquePrefix}SMTP_PWORD`]: mailerOptions.smtpPword,
+            [`${tenantUniquePrefix}SMTP_SERVICE`]: mailerOptions.smtpService,
+            [`${tenantUniquePrefix}SMTP_SECURE`]: mailerOptions.smtpSecure ? 'true' : 'false',
+            [`${tenantUniquePrefix}SMTP_SERVER`]: mailerOptions.smtpServer,
+            [`${tenantUniquePrefix}SMTP_PORT`]: mailerOptions.smtpPort,
+
+            [`${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
+            [`${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
+            [`${tenantUniquePrefix}PASSWORD_RESET_EXPIRATION`]: otherUserOptions.passwordResetExpiration,
+            [`${tenantUniquePrefix}EMAIL_VERIFICATION_EXPIRATION`]: otherUserOptions.emailVerificationExpiration,
+
+            [`${tenantUniquePrefix}JwtConstants_SECRET`]: jwtConstants.jwtSecretKey,
+            [`${tenantUniquePrefix}JwtConstants_SECRET_KEY_EXPIRATION`]: jwtConstants.jwtSecretKeyExpiration,
+            [`${tenantUniquePrefix}JwtConstants_REFRESH_SECRET`]: jwtConstants.jwtRefreshSecret,
+            [`${tenantUniquePrefix}JwtConstants_REFRESH_SECRET_KEY_EXPIRATION`]: jwtConstants.jwtRefreshSecretKeyExpiration,
+            [`${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY`]: jwtConstants.jwtSecretPrivateKey,
+            [`${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY_PASSPHRASE`]: jwtConstants.jwtSecretPrivateKeyPassphrase,
+            [`${tenantUniquePrefix}JwtConstants_SECRET_PUBLIC_KEY`]: jwtConstants.jwtSecretPublicKey,
+            [`${tenantUniquePrefix}JwtConstants_SIGN_ALGORITHM`]: jwtConstants.jwtSignAlgorithm,
+
+            [`${tenantUniquePrefix}AuthEnabled_Google`]: authEnabled.google ? 'true' : 'false',
+            [`${tenantUniquePrefix}AuthEnabled_Facebook`]: authEnabled.facebook ? 'true' : 'false',
+            [`${tenantUniquePrefix}AuthEnabled_TwoFactor`]: authEnabled.twoFactor ? 'true' : 'false',
+
+            [`${tenantUniquePrefix}FBConstants_APP_ID`]: fbOauth2Constants ? fbOauth2Constants.fBAppId : null,
+            [`${tenantUniquePrefix}FBConstants_APP_SECRET`]: fbOauth2Constants ? fbOauth2Constants.fBAppSecret : null,
+            [`${tenantUniquePrefix}FBConstants_CREATE_USER_IF_NOT_EXISTS`]: fbOauth2Constants ? (fbOauth2Constants.createUserIfNotExists ? 'true' : 'false') : null,
+
+            [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientOidcIssuer : null,
+            [`${tenantUniquePrefix}GoogleConstants_GOOGLE_API_KEY`]: googleOidcConstants ? googleOidcConstants.googleApiKey : null,
+            [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_SECRET`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientSecret : null,
+            [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_ID`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientId : null,
+            [`${tenantUniquePrefix}GoogleConstants_CREATE_USER_IF_NOT_EXISTS`]: googleOidcConstants ? (googleOidcConstants.createUserIfNotExists ? 'true' : 'false') : null,
+
+            [`${tenantUniquePrefix}LOGO_FILE_SIZE_LIMIT`]: sizeLimits.logoFileSizeLimit,
+            [`${tenantUniquePrefix}PHOTO_FILE_SIZE_LIMIT`]: sizeLimits.photoFileSizeLimit,
+            [`${tenantUniquePrefix}GENERAL_FILE_SIZE_LIMIT`]: sizeLimits.generalFileSizeLimit,
+
+            [`${tenantUniquePrefix}ELASTICSEARCH_NODE`]: elasticSearchProperties.node,
+            [`${tenantUniquePrefix}ELASTICSEARCH_USERNAME`]: elasticSearchProperties.username,
+            [`${tenantUniquePrefix}ELASTICSEARCH_PASSWORD`]: elasticSearchProperties.password,
+
+            [`${tenantUniquePrefix}Theme_Custom`]: theme.custom ? 'true' : 'false',
+            [`${tenantUniquePrefix}Theme_Type`]: theme.type,
+            [`${tenantUniquePrefix}Theme_RootUrl`]: theme.rootUrl,
+
+            [`${tenantUniquePrefix}Upload_Root_FileSystem`]: rootFileSystem.path, //to be removed when I have adjusted client to use the second below
+            [`${tenantUniquePrefix}Root_FileSystem_Path`]: rootFileSystem.path,
+            [`${tenantUniquePrefix}Root_FileSystem_Username`]: rootFileSystem.username,
+            [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password,
+
+            [`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
+            [`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
+
+        });
+
+        if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+    }
 
     /*Let's work on functions to set/add and unset/remove relations. set/unset applies to x-to-one and add/remove applies to x-to-many */
     //1. primaryContact
@@ -776,34 +1206,260 @@ export class TenantsService {
         }
     }
 
-    //7. ConnectionResource
-    async setConnectionResourceById(tenantId: number, connectionResourseId: number): Promise<void> {
+    //7. TenantConfigDetail
+    /**
+     * This method first gets the tenantUniquePrefix by stripping tenant's uuid of - and adding _ at the end.
+     * The prefix is then set as schema name for the new tenant config detail just created
+     * After saving the new config detail, it is linked to the region passed via regionId
+     * The tenant config detail is also then linked to the tenant
+     * Attempt is then made to create the database schema in the region, for the tenant as well as write tenant's properties to the regions redis. Both are done in parallel.
+     * 
+     * @param tenantId 
+     * @param createTenantConfigDetailDto 
+     */
+    async createAndSetTenantConfigDetail(tenantId: number, createTenantConfigDetailDto: CreateTenantConfigDetailDto): Promise<void> {
+        try {
+            await this.connection.manager.transaction(async entityManager => {
+
+                const newTenantConfigDetail = this.tenantConfigDetailRepository.create(createTenantConfigDetailDto);
+
+                //Get uuid, uniqueName and customURLSlug of tenant. For schema, writing to redis. Consider passing them as arguments
+                const [uuid, subDomainName, customURLSlug, regionName] = await this.getTenantUniqueIdentities(tenantId);
+
+                //Get the region from regionName
+                const region = await this.regionsService.findRegionByName(regionName);
+
+                //Set the unique name for tenant to tenant's subDomain and region's rootDomainName
+                const uniqueName = `${subDomainName}.${region.rootDomainName}`
+
+                //trim off - and and _ to the end
+                const tenantUniquePrefix: string = `_${uuid.replace(/-/g, '')}_`;
+                //add schema to connection properties
+                newTenantConfigDetail.dbSchema = tenantUniquePrefix;
+
+                //save the config detail
+                const tenantConfigDetail = await entityManager.save(newTenantConfigDetail);
+
+                //link the regionId to the new tenant config detail
+                await entityManager.createQueryBuilder()
+                    .relation(TenantConfigDetail, "region")
+                    .of(tenantConfigDetail.id)
+                    .set(region.id);//x-to-one
+
+                //link the config detail to tenant
+                await entityManager.createQueryBuilder()
+                    .relation(Tenant, "tenantConfigDetail")
+                    .of(tenantId)
+                    .set(tenantConfigDetail);//x-to-one
+
+                //get the region entity so that we can get default properties from it where necessary
+                //const region = await this.regionsService.findOne(regionId);
+
+                //Get the tenant detail properties. Defaults to region if tenantConfigDetail is null
+                const dbProperties = tenantConfigDetail.dbProperties == null ? region.dbProperties : tenantConfigDetail.dbProperties;
+                const redisProperties = tenantConfigDetail.redisProperties == null ? region.redisProperties : tenantConfigDetail.redisProperties;
+                const mailerOptions = tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenantConfigDetail.mailerOptions;
+                const otherUserOptions = tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenantConfigDetail.otherUserOptions;
+                const jwtConstants = tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenantConfigDetail.jwtConstants;
+                const authEnabled = tenantConfigDetail.authEnabled == null ? region.authEnabled : tenantConfigDetail.authEnabled;
+                const fbOauth2Constants = tenantConfigDetail.fbOauth2Constants == null ? region.fbOauth2Constants : tenantConfigDetail.fbOauth2Constants;
+                const googleOidcConstants = tenantConfigDetail.googleOidcConstants == null ? region.googleOidcConstants : tenantConfigDetail.googleOidcConstants;
+                const sizeLimits = tenantConfigDetail.sizeLimits == null ? region.sizeLimits : tenantConfigDetail.sizeLimits;
+                const elasticSearchProperties = tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenantConfigDetail.elasticSearchProperties;
+                const theme = tenantConfigDetail.theme == null ? region.theme : tenantConfigDetail.theme;
+                const rootFileSystem = tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenantConfigDetail.rootFileSystem;
+                const logo = tenantConfigDetail.logo;
+
+
+                //The newTenantDBConnection and redisProperties consts below have no await on the right
+                //side so as to parallelize both actions.
+                //Afterwards, new consts are declared to await each one.
+                //newTenantDBConnection is for connection to the region's db so as to create the schema
+                //use region name if no tenant specific client
+                const dbConnectionName = tenantConfigDetail.dbProperties == null ? region.name : region.name + "_" + tenantUniquePrefix
+                const newTenantDBConnection = this.getDbConnection(dbConnectionName, {
+                    type: 'postgres',
+                    host: dbProperties.host,
+                    port: dbProperties.port,
+                    username: dbProperties.username,
+                    password: dbProperties.password,
+                    database: dbProperties.database,
+                    ssl: dbProperties.ssl
+                });
+
+
+                //Next, we need to update the tenancy module of ugum running application with new tenant's connection detail, via Redis
+
+                //Get client connection to Redis
+                //As sentinels in db was set as string, first convert to proper object format
+                let sentinels: { host: string, port: number }[] | null = null;
+                if (redisProperties.sentinels != undefined) {
+                    sentinels = JSON.parse(redisProperties.sentinels)
+                    //redisPropertiesMod = { ...redisProperties, sentinels }
+                }
+                //use region name if no tenant specific client
+                const redisClientName = tenantConfigDetail.redisProperties == null ? region.name : region.name + "_" + tenantUniquePrefix
+                const redisClient = this.getRedisClient(redisClientName, { ...redisProperties, sentinels }); //replace sentinels with properly formatted one.
+
+                //if sentinels was set as { host: string, port: number }[] | null in database
+                //const redisClient = this.regionsService.getRedisClient(regionUniqueName, redisProperties)
+
+
+                //now await both above after both getDBConnection and getRedisClient have been allowed to run in parallel
+                const newTenantDBConnectionReturned = await newTenantDBConnection;
+                const redisClientReturned = await redisClient;
+
+
+                //Now invoke query to create tenant's schema as well as set redis without await, to parallelize them
+                try {
+                    await newTenantDBConnectionReturned.createEntityManager().query(`CREATE SCHEMA ${tenantUniquePrefix}`);
+                } catch (error) {
+                    console.log(error); //
+                }
+
+
+
+                /*I could do below for setting properties in redis by creating a Map and putting all the settings there 
+                and then pass the Map variable to redis client using mset e.g. 
+                const redisSettings = new Map<string, Redis.ValueType>()
+                redisSettings.set(`${tenantUniquePrefix}POSTGRES_HOST`, dbProperties.host);
+                const runRedisSet = redisClientReturned.mset(redisSettings);
+                */
+
+                //Alternative way to call mset without first creating a Map
+                const setPropertiesInRedis = redisClientReturned.mset({
+
+                    [uniqueName]: tenantUniquePrefix,
+                    [customURLSlug]: tenantUniquePrefix,
+                    [`${tenantUniquePrefix}POSTGRES_HOST`]: dbProperties.host,
+                    [`${tenantUniquePrefix}POSTGRES_PORT`]: dbProperties.port,
+                    [`${tenantUniquePrefix}POSTGRES_USER`]: dbProperties.username,
+                    [`${tenantUniquePrefix}POSTGRES_PASSWORD`]: dbProperties.password,
+                    [`${tenantUniquePrefix}POSTGRES_DB`]: dbProperties.database,
+                    [`${tenantUniquePrefix}POSTGRES_SCHEMA`]: tenantUniquePrefix,
+                    [`${tenantUniquePrefix}POSTGRES_SSL_CA`]: dbProperties.ssl != undefined ? dbProperties.ssl.ca : null,
+                    [`${tenantUniquePrefix}POSTGRES_SSL_KEY`]: dbProperties.ssl != undefined ? dbProperties.ssl.key : null,
+                    [`${tenantUniquePrefix}POSTGRES_SSL_CERT`]: dbProperties.ssl != undefined ? dbProperties.ssl.cert : null,
+                    [`${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: dbProperties.ssl != undefined ? dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
+
+                    [`${tenantUniquePrefix}SMTP_USER`]: mailerOptions.smtpUser,
+                    [`${tenantUniquePrefix}SMTP_PWORD`]: mailerOptions.smtpPword,
+                    [`${tenantUniquePrefix}SMTP_SERVICE`]: mailerOptions.smtpService,
+                    [`${tenantUniquePrefix}SMTP_SECURE`]: mailerOptions.smtpSecure ? 'true' : 'false',
+                    [`${tenantUniquePrefix}SMTP_SERVER`]: mailerOptions.smtpServer,
+                    [`${tenantUniquePrefix}SMTP_PORT`]: mailerOptions.smtpPort,
+
+                    [`${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
+                    [`${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
+                    [`${tenantUniquePrefix}PASSWORD_RESET_EXPIRATION`]: otherUserOptions.passwordResetExpiration,
+                    [`${tenantUniquePrefix}EMAIL_VERIFICATION_EXPIRATION`]: otherUserOptions.emailVerificationExpiration,
+
+                    [`${tenantUniquePrefix}JwtConstants_SECRET`]: jwtConstants.jwtSecretKey,
+                    [`${tenantUniquePrefix}JwtConstants_SECRET_KEY_EXPIRATION`]: jwtConstants.jwtSecretKeyExpiration,
+                    [`${tenantUniquePrefix}JwtConstants_REFRESH_SECRET`]: jwtConstants.jwtRefreshSecret,
+                    [`${tenantUniquePrefix}JwtConstants_REFRESH_SECRET_KEY_EXPIRATION`]: jwtConstants.jwtRefreshSecretKeyExpiration,
+                    [`${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY`]: jwtConstants.jwtSecretPrivateKey,
+                    [`${tenantUniquePrefix}JwtConstants_SECRET_PRIVATE_KEY_PASSPHRASE`]: jwtConstants.jwtSecretPrivateKeyPassphrase,
+                    [`${tenantUniquePrefix}JwtConstants_SECRET_PUBLIC_KEY`]: jwtConstants.jwtSecretPublicKey,
+                    [`${tenantUniquePrefix}JwtConstants_SIGN_ALGORITHM`]: jwtConstants.jwtSignAlgorithm,
+
+                    [`${tenantUniquePrefix}AuthEnabled_Google`]: authEnabled.google ? 'true' : 'false',
+                    [`${tenantUniquePrefix}AuthEnabled_Facebook`]: authEnabled.facebook ? 'true' : 'false',
+                    [`${tenantUniquePrefix}AuthEnabled_TwoFactor`]: authEnabled.twoFactor ? 'true' : 'false',
+
+                    [`${tenantUniquePrefix}FBConstants_APP_ID`]: fbOauth2Constants ? fbOauth2Constants.fBAppId : null,
+                    [`${tenantUniquePrefix}FBConstants_APP_SECRET`]: fbOauth2Constants ? fbOauth2Constants.fBAppSecret : null,
+                    [`${tenantUniquePrefix}FBConstants_CREATE_USER_IF_NOT_EXISTS`]: fbOauth2Constants ? (fbOauth2Constants.createUserIfNotExists ? 'true' : 'false') : null,
+
+                    [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_OIDC_ISSUER`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientOidcIssuer : null,
+                    [`${tenantUniquePrefix}GoogleConstants_GOOGLE_API_KEY`]: googleOidcConstants ? googleOidcConstants.googleApiKey : null,
+                    [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_SECRET`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientSecret : null,
+                    [`${tenantUniquePrefix}GoogleConstants_GOOGLE_OAUTH2_CLIENT_ID`]: googleOidcConstants ? googleOidcConstants.googleOauth2ClientId : null,
+                    [`${tenantUniquePrefix}GoogleConstants_CREATE_USER_IF_NOT_EXISTS`]: googleOidcConstants ? (googleOidcConstants.createUserIfNotExists ? 'true' : 'false') : null,
+
+                    [`${tenantUniquePrefix}LOGO_FILE_SIZE_LIMIT`]: sizeLimits.logoFileSizeLimit,
+                    [`${tenantUniquePrefix}PHOTO_FILE_SIZE_LIMIT`]: sizeLimits.photoFileSizeLimit,
+                    [`${tenantUniquePrefix}GENERAL_FILE_SIZE_LIMIT`]: sizeLimits.generalFileSizeLimit,
+
+                    [`${tenantUniquePrefix}ELASTICSEARCH_NODE`]: elasticSearchProperties.node,
+                    [`${tenantUniquePrefix}ELASTICSEARCH_USERNAME`]: elasticSearchProperties.username,
+                    [`${tenantUniquePrefix}ELASTICSEARCH_PASSWORD`]: elasticSearchProperties.password,
+
+                    [`${tenantUniquePrefix}Theme_Custom`]: theme.custom ? 'true' : 'false',
+                    [`${tenantUniquePrefix}Theme_Type`]: theme.type,
+                    [`${tenantUniquePrefix}Theme_RootUrl`]: theme.rootUrl,
+
+                    [`${tenantUniquePrefix}Upload_Root_FileSystem`]: rootFileSystem.path, //to be removed when I have adjusted client to use the second below
+                    [`${tenantUniquePrefix}Root_FileSystem_Path`]: rootFileSystem.path,
+                    [`${tenantUniquePrefix}Root_FileSystem_Username`]: rootFileSystem.username,
+                    [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password,
+
+                    [`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
+                    [`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
+
+                });
+
+
+                //now await both before closing db and moving to webserver setup and mail sending
+                //await runQuery;
+                //Only close or disconnect if it is unique to the tenant. If for whole region, keep alive
+                if (tenantConfigDetail.dbProperties != null) newTenantDBConnectionReturned.close();
+                await setPropertiesInRedis;
+                if (tenantConfigDetail.redisProperties != null) redisClientReturned.disconnect();
+
+                //get the webServer setup for the client
+                /*One way is to upload a uniqueName.conf file to be uploaded to a directory that is read by nginx.conf
+                followed by invoking an nginx reload via shell command in nodejs.*/
+
+                //Send mail to tenant after successful creation
+                
+
+            })
+        } catch (error) {
+            //attempt to drop entity schema if already created
+            if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
+                throw new HttpException({
+                    status: HttpStatus.BAD_REQUEST,
+                    error: `There was a problem with creating and setting tenant config detail: ${error.message}`,
+                }, HttpStatus.BAD_REQUEST)
+            } else {
+                throw new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem with creating and setting tenant config detail: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
+    }
+
+    async setTenantConfigDetailById(tenantId: number, tenantConfigDetailId: number): Promise<void> {
         try {
             return await this.tenantRepository.createQueryBuilder()
-                .relation(Tenant, "connectionResourse")
+                .relation(Tenant, "tenantConfigDetail")
                 .of(tenantId)
-                .set(connectionResourseId)
+                .set(tenantConfigDetailId)
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
-                error: `There was a problem setting connection resource for tenant: ${error.message}`,
+                error: `There was a problem setting config detail for tenant: ${error.message}`,
             }, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    async unsetConnectionResourceById(tenantId: number): Promise<void> {
+    async unsetTenantConfigDetailById(tenantId: number): Promise<void> {
         try {
             return await this.tenantRepository.createQueryBuilder()
-                .relation(Tenant, "connectionResourse")
+                .relation(Tenant, "tenantConfigDetail")
                 .of(tenantId)
                 .set(null)
         } catch (error) {
             throw new HttpException({
                 status: HttpStatus.INTERNAL_SERVER_ERROR,
-                error: `There was a problem unsetting connection resource for tenant: ${error.message}`,
+                error: `There was a problem unsetting config detail for tenant: ${error.message}`,
             }, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
 
     //We can also create some finders using querybuilder. It is more efficient.
     //I am using the Select QueryBuilder here (see https://github.com/typeorm/typeorm/blob/master/docs/select-query-builder.md).
@@ -826,11 +1482,25 @@ export class TenantsService {
             .getManyAndCount()
     }
 
-    async findByUniqueName(uniqueName: string): Promise<Tenant> {
+    async findByUniqueName(subDomainName: string, regionRootDomainName: string): Promise<Tenant> {
         return await this.tenantRepository.createQueryBuilder("tenant")
-            .where("tenant.uniqueName = :uniqueName", { uniqueName })
+            .where("tenant.subDomainName = :subDomainName", { subDomainName })
+            .andWhere("tenant.regionRootDomainName = :regionRootDomainName", { regionRootDomainName })
             .getOne();
     }
+
+    async checkIfChosenDomainNameExists(subDomainName: string, regionRootDomainName: string): Promise<boolean> {
+        let exists = false;
+        const count = await this.tenantRepository.createQueryBuilder("tenant")
+            .where("tenant.subDomainName = :subDomainName", { subDomainName })
+            .andWhere("tenant.regionRootDomainName = :regionRootDomainName", { regionRootDomainName })
+            .getCount()
+        if (count > 0)
+            exists = true;
+
+        return exists
+    }
+
 
     //some perculiar getters. Sea without shores
     async getActiveTenantsByAccountOfficer(userId: number, active: boolean = true): Promise<TenantAccountOfficer[]> {
@@ -838,16 +1508,6 @@ export class TenantsService {
             .innerJoinAndSelect("tenantAccountOfficer.tenant", "tenant", "tenant.active = :active", { active })
             .where("tenantAccountOfficer.user = :userId", { userId })
             .getMany()
-
-        //To restrict the returned fields of user, below for example will only return some indicated fields in select etc
-        /*
-        return await this.tenantAccountOfficerRepository.createQueryBuilder("tenantAccountOfficer")
-        .select(["tenantAccountOfficer.id","tenantAccountOfficer.roles"])
-        .addSelect(["tenant.id, tenant.uniqueName, tenant.status"])
-        .innerJoin("tenantAccountOfficer.tenant", "tenant", "tenant.active = :active", {active})
-        .where("tenantAccountOfficer.user = :userId", {userId})
-        .getMany()
-        */
 
     }
 
@@ -879,7 +1539,7 @@ export class TenantsService {
         Steps:
         1. npm i fastify-multipart
         2. Assuming that uploads will be to /uploads folder under project directory, create the folder.
-        For multitenant implementations, we will read this from connectionResourse.rootFileSystem
+        For multitenant implementations, we will read this from tenantConfigDetail.rootFileSystem
         3. For user photos, we will assume the path photos/filename. We will use uuid to generate unique filename and store in photo fieldThe filename will be stored in photo field
         4. We will store the mime type for file in user field photoFileEncoding, for setting content type when sending file
         5. Register the installed fastify-multipart in main.ts
@@ -925,12 +1585,12 @@ export class TenantsService {
                     error: `There was a problem uploading logo. Keep upload to size limit of ${LOGO_FILE_SIZE_LIMIT} bytes`,
                 }, HttpStatus.BAD_REQUEST))
             } else {*/
-                reply.send(
-                    new HttpException({
-                        status: HttpStatus.INTERNAL_SERVER_ERROR,
-                        error: `There was a problem uploading logo: ${error.message}`,
-                    }, HttpStatus.INTERNAL_SERVER_ERROR)
-                )
+            reply.send(
+                new HttpException({
+                    status: HttpStatus.INTERNAL_SERVER_ERROR,
+                    error: `There was a problem uploading logo: ${error.message}`,
+                }, HttpStatus.INTERNAL_SERVER_ERROR)
+            )
             //}
         }
     }
@@ -1018,5 +1678,86 @@ export class TenantsService {
             });
         }
     }
+
+    async getTenantUniqueIdentities(tenantId: number): Promise<string[]> {
+        const tenant: Tenant = await this.tenantRepository.createQueryBuilder("tenant")
+            .where("tenant.id = :tenantId", { tenantId })
+            .getOne();
+
+        return [tenant.uuid, tenant.subDomainName, tenant.customURLSlug, tenant.regionName];
+    }
+
+    /* Below are unique util functions */
+    /**
+     * Get redis client for the region. This is called when tenant config details are to be added to a region's redis.
+     * @param regionName 
+     * @param redisProperties 
+     * @returns 
+     */
+    async getRedisClient(name: string, redisProperties: Redis.RedisOptions) {
+        let client: Redis.Redis = this.redisClients.get(name); //attempt to get client for exising connection
+
+        if (client == undefined) {
+            try {
+                //create the connection
+                client = new Redis({
+                    host: redisProperties.host,
+                    port: redisProperties.port,
+                    password: redisProperties.password,
+                    db: redisProperties.db,
+                    family: redisProperties.family,
+                    sentinels: redisProperties.sentinels,
+                    name: name
+                });
+                this.redisClients.set(name, client); //update the Map of connections here
+            } catch (error) {
+                console.log(error)
+                throw new BadRequestException(
+                    `${error.message}`,
+                    `Could not connect to redis service to set tenant properties: ${error.message}`
+                );
+            }
+
+        }
+        return client;
+    }
+
+    /**
+     * This method is for getting db connection for the tenant by name. This name could be region name or region + _tenant name if unique to tenant. If not yet opened, a new one is created.
+     * @param name 
+     * @param connectionProperties 
+     * @returns 
+     */
+    async getDbConnection(name: string, connectionProperties: PostgresConnectionOptions): Promise<Connection> {
+
+        //try to get existing connection for the region
+        try {
+            return getConnection(name) //using regionName as connection name
+        } catch (error) {
+            //No connection created yet for the region? create one
+            console.log('trying to create connection for the region or tenant')
+            try {
+                return await createConnection({
+                    name: name,
+                    type: 'postgres',
+                    host: connectionProperties.host,
+                    port: connectionProperties.port,
+                    username: connectionProperties.username,
+                    password: connectionProperties.password,
+                    database: connectionProperties.database as string,
+                    ssl: connectionProperties.ssl
+                });
+            }
+            catch (error) {
+                console.log(error)
+                throw new BadRequestException(
+                    `${error.message}`,
+                    `Could not get database connection: ${error.message}`
+                );
+            }
+
+        }
+    }
+
 
 }

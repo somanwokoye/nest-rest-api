@@ -1,6 +1,6 @@
 /** This component is for displaying each tenant in the record, passed to it from TenantList */
 import React, { useState } from 'react';
-import { IAction, ITenant, TenantStatus } from '../app.interfaces';
+import { IAction, ITenant, TenantStatus } from '../global/app.interfaces';
 
 //create the type for the anticipated props to be passed from parent component
 type Props = {
@@ -13,7 +13,7 @@ const EditTenant: React.FC<Props> = (props) => {
 
     const initialTenantState: ITenant = {
         id: props.tenant.id,
-        uniqueName: props.tenant.uniqueName,
+        name: props.tenant.name,
         address: props.tenant.address,
         moreInfo: props.tenant.moreInfo,
         status: props.tenant.status,
@@ -24,7 +24,7 @@ const EditTenant: React.FC<Props> = (props) => {
         primaryContact: props.tenant.primaryContact,
         teamMembers: props.tenant.teamMembers,
         tenantAccountOfficers: props.tenant.tenantAccountOfficers,
-        connectionResource: props.tenant.connectionResource,
+        tenantConfigDetail: props.tenant.tenantConfigDetail,
         customTheme: props.tenant.customTheme,
     }
 
@@ -112,15 +112,15 @@ const EditTenant: React.FC<Props> = (props) => {
                 <form onSubmit={onSubmit}>
                     <div className="box">
                         <div className="columns is-mobile">
-                            <h2>Edit Tenant</h2>
+                            <h3>Edit {props.tenant.subDomainName}.{props.tenant.regionRootDomainName}</h3>
                         </div>
                         <div className="columns is-mobile">
                             <div className="column">
                                 <div className="box">
                                     <div className="field">
-                                        <label className="label">Unique Name</label>
+                                        <label className="label">Name</label>
                                         <div className="control">
-                                            <input className="input" type="text" placeholder="Unique name input" name="uniqueName" value={tenant.uniqueName} onChange={onChange} required />
+                                            <input className="input" type="text" placeholder="Unique name input" name="name" value={tenant.name} onChange={onChange} required />
                                         </div>
                                     </div>
                                     <div className="field">

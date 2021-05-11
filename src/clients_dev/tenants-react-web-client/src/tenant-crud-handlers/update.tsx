@@ -1,4 +1,4 @@
-import { IAction, ITenant } from "../app.interfaces";
+import { IAction, ITenant } from "../global/app.interfaces";
 
 
 export const handleUpdateTenant = async (editedTenant: ITenant, dispatch: React.Dispatch<IAction>) => {

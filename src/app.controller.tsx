@@ -43,11 +43,11 @@ export class AppController {
     
   }  
 
+/*  
   @Get('test-session')
-  testSession(@Session() session, @Req() req: Request, @Res() reply: Reply){
-    console.log(req.session.expires)
-    session['data'] = 'This was written to session';
-    reply.send(session.data);
+  testSession(@Req() req: Request, @Res() reply: Reply){
+    req.session.set('data', 'This was written to session');
+    reply.send(req.session.get('data'));
   }
-  
+  */
 }

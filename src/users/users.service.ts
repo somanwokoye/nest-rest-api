@@ -25,11 +25,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { API_VERSION, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, smtpTransport, smtpTransportGmail, TenantTeamRole, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
 import { SendMailOptions } from 'nodemailer';
-import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
-import { FacebookProfileDto } from 'src/auth/dtos/facebook-profile.dto';
+import { GenericBulmaNotificationResponseDto } from '../global/generic.dto';
+import { FacebookProfileDto } from '../auth/dtos/facebook-profile.dto';
 import * as randomstring from 'randomstring';
-import { GoogleProfileDto } from 'src/auth/dtos/google-profile.dto';
-import UsersSearchService from 'src/search/services/usersSearch.services';
+import { GoogleProfileDto } from '../auth/dtos/google-profile.dto';
+import UsersSearchService from '../search/services/usersSearch.services';
+import { RegionsService } from '../regions/regions.service';
 
 @Injectable()
 export class UsersService {
@@ -42,7 +43,8 @@ export class UsersService {
         @InjectRepository(TenantAccountOfficer) private tenantAccountOfficerRepository: Repository<TenantAccountOfficer>,
         @InjectConnection('default')//You can inject connection by name. See https://docs.nestjs.com/techniques/database#multiple-databases
         private connection: Connection,
-        private usersSearchService: UsersSearchService
+        private usersSearchService: UsersSearchService,
+        private readonly regionsService: RegionsService
     ) { }
 
     /*CREATE section*/
@@ -228,6 +230,9 @@ export class UsersService {
                 })
             }
 
+            //remove any cache named users
+            await this.connection.queryResultCache.remove(["users"]);
+
             return insertResult;
 
         } catch (error) {
@@ -304,7 +309,6 @@ export class UsersService {
      * No partial update allowed here. Saves the user object supplied
      */
     async save(user: User): Promise<User> {
-
         try {
             /*
             if (user.passwordHash && user.passwordHash != '') { //new password was sent. Not ideal though. There should be a different process for updating password
@@ -596,6 +600,11 @@ export class UsersService {
         try {
             await this.connection.manager.transaction(async entityManager => {
                 const newTenant = this.tenantRepository.create(createTenantDto);
+                
+                //get the regionRootDomainName and set for newTenant. It is a denomalization
+                const region = await this.regionsService.findRegionByName(createTenantDto.regionName);
+                newTenant.regionRootDomainName = region.rootDomainName;
+
                 const tenant = await entityManager.save(newTenant);
                 await entityManager.createQueryBuilder()
                     .relation(User, "primaryContactForWhichTenants")

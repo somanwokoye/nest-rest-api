@@ -1,4 +1,4 @@
-import { IAction, IFindOptions } from "../app.interfaces";
+import { IAction, IFindOptions } from "../global/app.interfaces";
 
 //function to fetch data
 //See https://github.com/typeorm/typeorm/blob/master/docs/find-options.md for find options

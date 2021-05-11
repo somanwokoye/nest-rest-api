@@ -1,4 +1,4 @@
-import { IState, IAction } from '../app.interfaces';
+import { IState, IAction } from '../global/app.interfaces';
 
 const reducer = (state: IState, action: IAction) => {
     switch (action.type) {

@@ -1,7 +1,7 @@
 /** This component is for displaying each item in the record, passed to it from TenantList */
 import React, { useContext, useState } from 'react';
-import { ITenant } from '../app.interfaces';
-import { AppContext } from '../App';
+import { ITenant } from '../global/app.interfaces';
+import { AppContext } from '../contexts/app.contexts';
 import Alert from './Alert';
 
 type Props = {
@@ -87,7 +87,7 @@ const ViewTenant: React.FC<Props> = ({ tenant }) => {
             if (!response.ok) throw new Error(response.statusText);//confirm that response is OK, else throw error
             //Response is ok. Proceed!
             //clear loading sign and fileToUpload. Set browser img src to clear cache
-            setState({ ...state, logo: { ...state.logo, src:`${state.logo.src}?&${Date.now()}`  }, upload: { fileToUpload: '', uploadButtonState: '' } })
+            setState({ ...state, logo: { ...state.logo, src: `${state.logo.src}?&${Date.now()}` }, upload: { fileToUpload: '', uploadButtonState: '' } })
         } catch (error) {
             setState({ ...state, alert: { show: true, type: 'danger', message: `logo upload failed: ${error.message}` } })
         }
@@ -96,8 +96,8 @@ const ViewTenant: React.FC<Props> = ({ tenant }) => {
     /*Additional handler functions here*/
     //Below is called by Alert component.
     const handleCloseAlert = () => {
-        setState({ 
-            ...state, alert: { show: false, message: '', type: undefined } 
+        setState({
+            ...state, alert: { show: false, message: '', type: undefined }
         });
     }
 
@@ -110,13 +110,21 @@ const ViewTenant: React.FC<Props> = ({ tenant }) => {
             <div className="modal-background"></div>
             <div className="modal-content">
                 <header className="modal-card-head">
-                    <p className="modal-card-title">{`Details of ${tenant.uniqueName}`}</p>
+                    <h3 className="modal-card-title">{`Details of ${tenant.subDomainName}.${tenant.regionRootDomainName}`}</h3>
                     <button className="delete" aria-label="close" onClick={onClickCloseButton} />
                 </header>
                 <section className="modal-card-body">
                     {/*<!-- Content ... -->*/}
                     <div className="columns">
                         <div className="column is-two-thirds">
+                            <div className="columns">
+                                <div className="column is-two-fifths">
+                                    Name:
+                                </div>
+                                <div className="column">
+                                    {tenant.name}
+                                </div>
+                            </div>
                             <div className="columns">
                                 <div className="column is-two-fifths">
                                     Address:
@@ -189,7 +197,7 @@ const ViewTenant: React.FC<Props> = ({ tenant }) => {
                                 <div className="field">
                                     <label className="label">Upload logo</label>
                                     <div className="control">
-                                        <input type="file" name="file" onChange={onChange} required/>
+                                        <input type="file" name="file" onChange={onChange} required />
                                     </div>
                                     <div className="field">
                                         {state.alert.show && alert}

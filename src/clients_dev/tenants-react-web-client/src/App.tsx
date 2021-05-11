@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer } from 'react';
-import { IAction, IFindOptions, IState } from './app.interfaces';
+import { IAction, IFindOptions, IState } from './global/app.interfaces';
 import reducer from './reducers/app.reducer';
 
 import { handleCreateTenant } from './tenant-crud-handlers/create';
@@ -11,6 +11,7 @@ import TenantList from './components/TenantList';
 import AddTenant from './components/AddTenant';
 import EditTenant from './components/EditTenant';
 import ViewTenant from './components/ViewTenant';
+import { AppContext } from './contexts/app.contexts';
 
 /**
  * Here, we take for granted that on initialization, 
@@ -24,15 +25,6 @@ type Props = {
 }
 */
 
-/*Below is type definition for our context type.*/
-//Restricts Context type to null or Object containing functions; null is used only for initialization of context in App.
-//Using Object because we have two or more parameters to pass and we want to carry them together within one context instead of two
-//different ones.
-type AppContextType = null | { dispatch: React.Dispatch<IAction>, handleDeleteTenant: Function };
-
-//create a context to be used to pass handlers like delete, edit handlers to subcomponents.
-//We are also going to pass dispatch returned by useReducer.
-export const AppContext = React.createContext<AppContextType>(null);
 
 /*Let us define type for our reducer so that we can easily pass any type of previous state and action.
 Reducer is simply a type of function that takes previous state and action and returns a new state as represented
@@ -67,7 +59,7 @@ const App: React.FC<IState> = (props) => {//assuming that props passed will be i
   //Just testing findOptions. Can be used to qualify find.
   //let findOptions: IFindOptions = {"select":["id","uniqueName"], "order": {"uniqueName": "ASC", "id": "DESC"}}
   //let findOptions: IFindOptions = {}
-  let findOptions: IFindOptions = {"relations":["primaryContact","teamMembers", "tenantAccountOfficers", "customTheme", "connectionResource"]};
+  let findOptions: IFindOptions = {"relations":["primaryContact","teamMembers", "tenantAccountOfficers", "customTheme", "tenantConfigDetail"]};
   /**
    * useEffect to be run once, hence the second parameter []. Loads data at componentDidMount life cycle stage
    */
