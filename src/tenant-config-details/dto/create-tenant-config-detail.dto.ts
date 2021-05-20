@@ -1,4 +1,4 @@
-import { CreateRegionDto } from "src/regions/dto/create-region.dto";
+import { CreateRegionDto } from "../../regions/dto/create-region.dto";
 import { CreateTenantDto } from "../../tenants/dto/create/create-tenant.dto";
 
 export class CreateTenantConfigDetailDto {
@@ -56,6 +56,7 @@ export class CreateTenantConfigDetailDto {
         password?: string,
         ca?: string //if certificate or key is needed
     };
+    /*
     readonly mailerOptions?: {
         smtpUser: string,
         smtpPword: string,
@@ -72,6 +73,24 @@ export class CreateTenantConfigDetailDto {
         refreshToken: string,
         accessToken: string,
         expires: number
+    };
+    */
+    readonly smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+        smtpUser: string,
+        smtpPword: string,
+        smtpHost: string,//smtpService below overrides smtpServer
+        smtpPort: number,
+        smtpService: string,
+        smtpSecure: boolean,
+        smtpOauth: boolean,
+        smtpClientId: string,
+        smtpClientSecret: string,
+        smtpAccessToken: string,
+        smtpRefreshToken: string,
+        smtpAccessUrl: string,
+        smtpPool: boolean,
+        smtpMaximumConnections: number,
+        smtpMaximumMessages: number
     };
     readonly jwtConstants?: {
         jwtSecretKeyExpiration: number, //e.g. 300

@@ -7,11 +7,11 @@ import { parsedEnv } from "../../global/app.settings";
 @Entity()
 export class Region extends BaseAbstractEntity {
 
-    @Column({unique: true})
-    @Index({unique: true})
+    @Column({ unique: true })
+    @Index({ unique: true })
     name: string;
 
-    @Column({default: parsedEnv.DEFAULT_REGION_ROOT_DOMAIN_NAME})
+    @Column({ default: parsedEnv.DEFAULT_REGION_ROOT_DOMAIN_NAME })
     rootDomainName: string; //E.g. r1.peakharmony.com. Set *.rootDomainName up in nameserver. A tenant1 unique name for e.g. can then have a URL slug, tenant1.r1.peakharmony.com. Use default domain to handle all on the server. Only need to add an nginx server block conf file for custom domain. Defaults to no subdomain e.g. peakharmony.com
 
     @Column({ nullable: true })
@@ -26,7 +26,8 @@ export class Region extends BaseAbstractEntity {
     @Column({ default: parseInt(parsedEnv.DEFAULT_REGION_TENANT_COUNT_CAPACITY) })
     tenantCountCapacity: number;
 
-    @Column("simple-json", {nullable: true,
+    @Column("simple-json", {
+        nullable: true,
         default: {
             //domain: parsedEnv.DEFAULT_REGION_WEBSERVER_DOMAIN, //E.g. r1.peakharmony.com. Set it up in nameserver. A tenant1 unique name for e.g. can then have a URL slug, tenant1.r1.peakharmony.com. Use default domain to handle all on the server. Only need to add an nginx server block conf file for custom domain
             host: parsedEnv.DEFAULT_REGION_WEBSERVER_HOST, //IP
@@ -95,6 +96,7 @@ export class Region extends BaseAbstractEntity {
         ca: string | null //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
 
+    /*
     @Column("simple-json",
         {
             default: {
@@ -125,20 +127,58 @@ export class Region extends BaseAbstractEntity {
         accessToken: string,
         expires: number
     }
+    */
+
+    @Column("simple-json", {nullable: true, //nullable is just here to accommodate old records at dev time
+        default: {
+            smtpUser: parsedEnv.DEFAULT_SMTP_USER,
+            smtpPword: parsedEnv.DEFAULT_SMTP_PWORD,
+            smtpHost: parsedEnv.DEFAULT_SMTP_HOST,//smtpService below overrides smtpServer
+            smtpPort: parseInt(parsedEnv.DEFAULT_SMTP_PORT),
+            smtpService: parsedEnv.DEFAULT_SMTP_SERVICE,
+            smtpSecure: parsedEnv.DEFAULT_SMTP_SECURE === 'true'? true: false,
+            smtpOauth: parsedEnv.DEFAULT_SMTP_OAUTH === 'true'? true: false,
+            smtpClientId: parsedEnv.DEFAULT_SMTP_CLIENT_ID,
+            smtpClientSecret: parsedEnv.DEFAULT_SMTP_CLIENT_SECRET,
+            smtpAccessToken: parsedEnv.DEFAULT_SMTP_ACCESS_TOKEN,
+            smtpRefreshToken: parsedEnv.DEFAULT_SMTP_REFRESH_TOKEN,
+            smtpAccessUrl: parsedEnv.DEFAULT_SMTP_ACCESS_URL,
+            smtpPool: parsedEnv.DEFAULT_SMTP_POOL === 'true'? true: false,
+            smtpMaximumConnections: parseInt(parsedEnv.DEFAULT_SMTP_MAXIMUM_CONNECTIONS),
+            smtpMaximumMessages: parseInt(parsedEnv.DEFAULT_SMTP_MAXIMUM_MESSAGES)
+        }
+    }) //default is yet to be setup. Hence, no default
+    smtpAuth: { //See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+        smtpUser: string,
+            smtpPword: string,
+            smtpHost: string,//smtpService below overrides smtpServer
+            smtpPort: number,
+            smtpService: string,
+            smtpSecure: boolean,
+            smtpOauth: boolean,
+            smtpClientId: string,
+            smtpClientSecret: string,
+            smtpAccessToken: string,
+            smtpRefreshToken: string,
+            smtpAccessUrl: string,
+            smtpPool: boolean,
+            smtpMaximumConnections: number,
+            smtpMaximumMessages: number
+    }
 
     @Column("simple-json", { //just in case not provided, at least put some default
-        default: {
-            jwtSecretKeyExpiration: parsedEnv.DEFAULT_JWT_SECRET_KEY_EXPIRATION,
-            jwtRefreshSecretKeyExpiration: parsedEnv.DEFAULT_JWT_REFRESH_SECRET_KEY_EXPIRATION,
-            //assuming the use of own keys/certificate. Can be accommodated if using jsonwebtoken directly (see https://www.npmjs.com/package/jsonwebtoken)
-            jwtSecretKey: crypto.randomBytes(16).toString('hex'),
-            jwtRefreshSecret: crypto.randomBytes(16).toString('hex'),
-            jwtSecretPrivateKey: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY,
-            jwtSecretPrivateKeyPassphrase: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY_PASSPHRASE,
-            jwtSecretPublicKey: parsedEnv.DEFAULT_JWT_SECRET_PUBLIC_KEY,
-            jwtSignAlgorithm: parsedEnv.DEFAULT_JWT_SIGN_ALGORITHM,
-        }
-    })
+            default: {
+                jwtSecretKeyExpiration: parsedEnv.DEFAULT_JWT_SECRET_KEY_EXPIRATION,
+                jwtRefreshSecretKeyExpiration: parsedEnv.DEFAULT_JWT_REFRESH_SECRET_KEY_EXPIRATION,
+                //assuming the use of own keys/certificate. Can be accommodated if using jsonwebtoken directly (see https://www.npmjs.com/package/jsonwebtoken)
+                jwtSecretKey: crypto.randomBytes(16).toString('hex'),
+                jwtRefreshSecret: crypto.randomBytes(16).toString('hex'),
+                jwtSecretPrivateKey: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY,
+                jwtSecretPrivateKeyPassphrase: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY_PASSPHRASE,
+                jwtSecretPublicKey: parsedEnv.DEFAULT_JWT_SECRET_PUBLIC_KEY,
+                jwtSignAlgorithm: parsedEnv.DEFAULT_JWT_SIGN_ALGORITHM,
+            }
+        })
     jwtConstants: {
         jwtSecretKeyExpiration: number, //e.g. 300
         jwtRefreshSecretKeyExpiration: string, //e.g. '7d'

@@ -40,7 +40,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
     //schema: string //This should be derived from the generated UUID column for each tenant
   }; //for database connection
 
-  @Column({nullable: true})//May be set after tenant config detail has been created, hence nullable
+  @Column({ nullable: true })//May be set after tenant config detail has been created, hence nullable
   dbSchema: string; //coined from tenant's uuid. Superfluos but could be useful for integrity check.
 
   @Column("simple-json", { nullable: true }) //use default region's values if null
@@ -70,26 +70,45 @@ export class TenantConfigDetail extends BaseAbstractEntity {
     password: string | null,
     ca: string | null //if certificate or key is needed
   }; //root of filesystem for uploads for the tenant. Each tenant in the region should have a suffix based on tenant's uuid
+  /*
+    @Column("simple-json", { nullable: true }) //use default region's values if null
+    mailerOptions: {
+      smtpUser: string,
+      smtpPword: string, //this really should be encrypted
+      smtpServer: string,//smtpService below overrides smtpServer
+      smtpPort: number,
+      smtpService: string,
+      smtpSecure: boolean
+    }
+  
+    @Column("simple-json", { nullable: true }) //default is yet to be setup. Hence, no default
+    smtpAuth: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+      type: string,
+      user: string,
+      clientId: string,
+      clientSecret: string,
+      refreshToken: string,
+      accessToken: string,
+      expires: number
+    }*/
 
-  @Column("simple-json", { nullable: true }) //use default region's values if null
-  mailerOptions: {
+  @Column("simple-json", { nullable: true }) //use region's as default if not setup
+  smtpAuth: { //See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
     smtpUser: string,
-    smtpPword: string, //this really should be encrypted
-    smtpServer: string,//smtpService below overrides smtpServer
+    smtpPword: string,
+    smtpHost: string,//smtpService below overrides smtpServer
     smtpPort: number,
     smtpService: string,
-    smtpSecure: boolean
-  }
-
-  @Column("simple-json", { nullable: true }) //default is yet to be setup. Hence, no default
-  smtpAuth: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
-    type: string,
-    user: string,
-    clientId: string,
-    clientSecret: string,
-    refreshToken: string,
-    accessToken: string,
-    expires: number
+    smtpSecure: boolean,
+    smtpOauth: boolean,
+    smtpClientId: string,
+    smtpClientSecret: string,
+    smtpAccessToken: string,
+    smtpRefreshToken: string,
+    smtpAccessUrl: string,
+    smtpPool: boolean,
+    smtpMaximumConnections: number,
+    smtpMaximumMessages: number
   }
 
   @Column("simple-json", { nullable: true }) //defaults to regional value

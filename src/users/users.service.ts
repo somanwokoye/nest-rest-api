@@ -23,7 +23,7 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, smtpTransport, smtpTransportGmail, TenantTeamRole, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
+import { API_VERSION, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, mailSender, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, TenantTeamRole, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 import { GenericBulmaNotificationResponseDto } from '../global/generic.dto';
 import { FacebookProfileDto } from '../auth/dtos/facebook-profile.dto';
@@ -1279,14 +1279,15 @@ export class UsersService {
 
 
                     //send mail
-
+                    /*
                     smtpTransportGmail.sendMail(mailOptions, async (error: Error) => {
                         //if (error)
                         //    throw error; //throw error that will be caught at the end?
                         if (error)
                             console.log(error);
                     });
-
+                    */
+                   mailSender(mailOptions);
 
                 })
                 //console.log('message successfully sent')
@@ -1467,12 +1468,15 @@ export class UsersService {
                     };
 
                     //send mail
+                    /*
                     smtpTransportGmail.sendMail(mailOptions, async (error: Error) => {
                         //if (error)
                         //    throw error; //throw error that will be caught at the end?
                         if (error)
                             console.log(error)
                     });
+                    */
+                   mailSender(mailOptions)
                 });
                 return {
                     notificationClass: "is-info",

@@ -1,6 +1,9 @@
 //The values used here should really come from a settings table in database or in env file, especially for multitenancy.
 
-import * as nodemailer from 'nodemailer';
+//import * as nodemailer from 'nodemailer';
+import nodemailer, { SendMailOptions } from "nodemailer";
+import { google } from "googleapis";
+const OAuth2 = google.auth.OAuth2;
 import Mail from 'nodemailer/lib/mailer';
 /*Below is to directly read .env file from settings. 
 See https://www.npmjs.com/package/dotenv.
@@ -24,6 +27,7 @@ export const PHOTO_FILE_SIZE_LIMIT = 1000 * 1024;
 //Prepare nodemailer using sendgrid. I signed up for one. 
 //See https://nodemailer.com/smtp/; https://nodemailer.com/smtp/#authentication
 /* sendGrid account not active. Using Gmail instead. See below.*/
+/*
 const nodemailerOptions = {
     pool: true,
     host: "smtp.sendgrid.net",
@@ -38,10 +42,11 @@ const nodemailerOptions = {
 
 }
 export const smtpTransport: Mail = nodemailer.createTransport(nodemailerOptions);
-
+*/
 /**
- * Settings for Gmail as SMTP server
+ * Settings for Gmail as SMTP server without oauth2
  */
+/*
 const nodemailerOptionsGmail = {
     service: 'gmail',
     auth: {
@@ -49,8 +54,110 @@ const nodemailerOptionsGmail = {
         pass: parsedEnv.SMTPPWORD
     }
 }
+*/
 
-export const smtpTransportGmail: Mail = nodemailer.createTransport(nodemailerOptionsGmail);
+
+/**
+ * Settings for Gmail as SMTP server with oauth2
+ */
+/* Below does not work
+const createTransporter = async () => {
+    const nodemailerOptionsGmail = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+            type: "OAuth2",
+            user: parsedEnv.SMTPUSER, //your gmail account you used to set the project up in google cloud console"
+            clientId: parsedEnv.GMAIL_CLIENT_ID,
+            clientSecret: parsedEnv.GMAIL_CLIENT_SECRET,
+            refreshToken: parsedEnv.GMAIL_REFRESH_TOKEN,
+            accessToken: parsedEnv.GMAIL_ACCESS_TOKEN, //access token variable we defined earlier
+            expires: 3599,
+
+        }
+    } as nodemailer.TransportOptions);
+
+    return nodemailer.createTransport(nodemailerOptionsGmail);
+
+}
+*/
+/**
+ * Below involves getting a new access_token before proceeding
+ * following https://dev.to/chandrapantachhetri/sending-emails-securely-using-node-js-nodemailer-smtp-gmail-and-oauth2-g3a
+ */
+const createTransporter = async (oauth2: boolean) => {
+    if (oauth2) {
+        try {
+            const oauth2Client = new OAuth2(
+                parsedEnv.SMTP_CLIENT_ID,
+                parsedEnv.SMTP_CLIENT_SECRET,
+                parsedEnv.SMTP_ACCESS_URL
+            );
+
+            oauth2Client.setCredentials({
+                refresh_token: parsedEnv.SMTP_REFRESH_TOKEN
+            });
+
+            const accessToken = await new Promise((resolve, reject) => {
+                oauth2Client.getAccessToken((err, token) => {
+                    if (err) {
+                        reject(`Failed to create access token: ${err.message}`);
+                    }
+                    resolve(token);
+                });
+            });
+
+            const transporter = nodemailer.createTransport({
+                host: parsedEnv.SMTP_HOST,
+                port: parseInt(parsedEnv.SMTP_PORT),
+                secure: parsedEnv.SMTP_SECURE === 'true'? true : false,
+                //service: "gmail",
+                auth: {
+                    type: "OAuth2",
+                    user: parsedEnv.SMTP_USER,
+                    accessToken,
+                    clientId: parsedEnv.SMTP_CLIENT_ID,
+                    clientSecret: parsedEnv.SMTP_CLIENT_SECRET,
+                    refreshToken: parsedEnv.SMTP_REFRESH_TOKEN,
+                },
+                //pool options (see https://nodemailer.com/smtp/pooled/)
+                pool: parsedEnv.SMTP_POOL === 'true'? true : false,
+                maxConnections: parseInt(parsedEnv.SMTP_MAXIMUM_CONNECTIONS),
+                maxMessages: parseInt(parsedEnv.SMTP_MAXIMUM_MESSAGES),
+                //others
+                //logger: true,
+                //debug: true
+            } as nodemailer.TransportOptions);
+
+            return transporter;
+
+        } catch (error) {
+            console.log(error)
+        }
+    } else { //not using oauth2
+        const nodemailerOptionsGmail = {
+            //service: 'gmail',
+            host: parsedEnv.SMTP_HOST,
+            port: parseInt(parsedEnv.SMTP_PORT),
+            secure: parsedEnv.SMTP_SECURE === 'true'? true : false,
+            auth: {
+                user: parsedEnv.SMTP_USER,
+                pass: parsedEnv.SMTP_PWORD
+            }
+        }
+
+        return nodemailer.createTransport(nodemailerOptionsGmail);
+
+    }
+
+};
+
+export const mailSender = async (emailOptions: SendMailOptions) => {
+    const emailTransporter = await createTransporter(parsedEnv.SMTP_OAUTH === 'true'? true : false);
+    if(emailTransporter)
+        await emailTransporter.sendMail(emailOptions);
+}
 
 
 export const resetPasswordMailOptionSettings = {
@@ -72,6 +179,24 @@ export const confirmEmailMailOptionSettings = {
     from: "noreply@piosystems.com"
 
 }
+
+export const tenantSuccessfullyCreatedMessage = {
+    textTemplate: `Dear {name},\n\n
+    Thank you for choosing our service. Your Loyalty Management and eCommerce Platform is set:\n
+    Go to {url} and login for your business setup\n\n
+    Yours truly,\n
+    Ugum Administrator`,
+    subject: "Your Loyalty Management and eCommerce Platform is ready for use",
+    from: "noreply@ugum.com"
+
+}
+
+export const SAAS_PROTOCOL: "http" | "https" = "http";
+export const SAAS_USE_API_VERSION_IN_URL: boolean = true;
+export const SAAS_API_VERSION: string = "v1"
+
+
+
 
 export const APP_NAME: string = "Tenant Manager";
 
@@ -122,10 +247,10 @@ export const jwtConstants = {
 export const fbConstants = {
     APP_ID: parsedEnv.APP_ID,
     APP_SECRET: parsedEnv.APP_SECRET,
-    CALLBACK_URL: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/facebook/redirect`: `http://localhost:3003/auth/facebook/redirect`,
-    SCOPE:'email, user_gender, user_birthday, ', //see https://developers.facebook.com/docs/permissions/reference for possibilities
-    PROFILE_FIELDS:['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
-    CREATE_USER_IF_NOT_EXISTS:  true
+    CALLBACK_URL: API_VERSION != '' ? `http://localhost:3003/${API_VERSION}/auth/facebook/redirect` : `http://localhost:3003/auth/facebook/redirect`,
+    SCOPE: 'email, user_gender, user_birthday, ', //see https://developers.facebook.com/docs/permissions/reference for possibilities
+    PROFILE_FIELDS: ['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
+    CREATE_USER_IF_NOT_EXISTS: true
 }
 
 export const googleConstants = {
@@ -133,7 +258,7 @@ export const googleConstants = {
     GOOGLE_API_KEY: parsedEnv.GOOGLE_API_KEY,
     GOOGLE_OAUTH2_CLIENT_ID: parsedEnv.GOOGLE_OAUTH2_CLIENT_ID,
     GOOGLE_OAUTH2_CLIENT_SECRET: parsedEnv.GOOGLE_OAUTH2_CLIENT_SECRET,
-    GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION !=''? `http://localhost:3003/${API_VERSION}/auth/google/redirect`: `http://localhost:3003/auth/google/redirect`,
+    GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION != '' ? `http://localhost:3003/${API_VERSION}/auth/google/redirect` : `http://localhost:3003/auth/google/redirect`,
     GOOGLE_OAUTH2_SCOPE: 'openid profile email https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/profile.agerange.read',//see https://developers.google.com/people/api/rest/v1/people/get under Authorization Scopes section
     CREATE_USER_IF_NOT_EXISTS: true
 }

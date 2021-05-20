@@ -148,7 +148,7 @@ const AddTenant: React.FC<Props> = (props) => {
         <form onSubmit={onSubmit}>
             <div className="box">
                 <div className="columns is-mobile">
-                    <h2>Add Tenant</h2>
+                    <h3>Add Tenant</h3>
                 </div>
                 <div className="columns is-mobile">
                     <div className="column">
@@ -210,7 +210,7 @@ const AddTenant: React.FC<Props> = (props) => {
                                 </div>
                             </div>
                             <div className="select">
-                                <select name="status" onChange={onChange} value={state.tenant.status}>
+                                <select name="status" onChange={onChange} value={state.tenant.status} required>
                                     <option value="notSelected">Select tenant status</option>
                                     <option value={TenantStatus.A}>Active</option>
                                     <option value={TenantStatus.O}>Owing</option>

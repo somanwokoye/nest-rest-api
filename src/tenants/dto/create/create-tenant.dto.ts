@@ -3,7 +3,7 @@ import { TenantStatus } from "src/global/custom.interfaces";
 import { CreateCustomThemeDto } from "./create-custom-theme.dto"
 import { CreateUserDto } from "../../../users/dto/create/create-user.dto";
 import { ApiProperty } from "@nestjs/swagger";
-import { CreateTenantConfigDetailDto } from "src/tenant-config-details/dto/create-tenant-config-detail.dto";
+import { CreateTenantConfigDetailDto } from "../../../tenant-config-details/dto/create-tenant-config-detail.dto";
 
 export class CreateTenantDto{
 

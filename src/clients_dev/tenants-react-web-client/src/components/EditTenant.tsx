@@ -136,7 +136,7 @@ const EditTenant: React.FC<Props> = (props) => {
                                         </div>
                                     </div>
                                     <div className="select">
-                                        <select name="status" onChange={onChange} value={tenant.status}>
+                                        <select name="status" onChange={onChange} value={tenant.status} required>
                                             <option value="notSelected">Select tenant status</option>
                                             <option value={TenantStatus.A}>Active</option>
                                             <option value={TenantStatus.O}>Owing</option>

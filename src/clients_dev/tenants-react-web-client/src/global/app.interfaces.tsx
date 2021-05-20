@@ -166,6 +166,7 @@ export interface ITenantConfigDetail extends IBaseAbstract{
         password?: string,
         ca: string | null //if certificate or key is needed
     };
+    /*
     mailerOptions?: {
         smtpUser: string,
         smtpPword: string,
@@ -182,6 +183,23 @@ export interface ITenantConfigDetail extends IBaseAbstract{
         refreshToken: string,
         accessToken: string,
         expires: number
+    };*/
+    smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+        smtpUser: string,
+        smtpPword: string,
+        smtpHost: string,//smtpService below overrides smtpServer
+        smtpPort: number,
+        smtpService: string,
+        smtpSecure: boolean,
+        smtpOauth: boolean,
+        smtpClientId: string,
+        smtpClientSecret: string,
+        smtpAccessToken: string,
+        smtpRefreshToken: string,
+        smtpAccessUrl: string,
+        smtpPool: boolean,
+        smtpMaximumConnections: number,
+        smtpMaximumMessages: number
     };
     jwtConstants?: {
         jwtSecretKeyExpiration: number, //e.g. 300
@@ -297,6 +315,7 @@ export interface IRegion extends IBaseAbstract {
         password: string | null,
         ca: string | null //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
+    /*
     mailerOptions?: {
         smtpUser: string,
         smtpPword: string,
@@ -313,7 +332,24 @@ export interface IRegion extends IBaseAbstract {
         refreshToken: string,
         accessToken: string,
         expires: number
-    }
+    }*/
+    smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+        smtpUser: string,
+        smtpPword: string,
+        smtpHost: string,//smtpService below overrides smtpServer
+        smtpPort: number,
+        smtpService: string,
+        smtpSecure: boolean,
+        smtpOauth: boolean,
+        smtpClientId: string,
+        smtpClientSecret: string,
+        smtpAccessToken: string,
+        smtpRefreshToken: string,
+        smtpAccessUrl: string,
+        smtpPool: boolean,
+        smtpMaximumConnections: number,
+        smtpMaximumMessages: number
+    };
     jwtConstants?: {
         jwtSecretKeyExpiration: number, //e.g. 300
         jwtRefreshSecretKeyExpiration: string, //e.g. '7d'

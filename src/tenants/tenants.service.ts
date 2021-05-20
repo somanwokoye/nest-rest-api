@@ -1,9 +1,9 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 import { InjectConnection, InjectRepository } from '@nestjs/typeorm';
-import { PG_UNIQUE_CONSTRAINT_VIOLATION } from 'src/global/error.codes';
-import { CreateUserDto } from 'src/users/dto/create/create-user.dto';
-import { User } from 'src/users/models/user.entity';
+import { PG_UNIQUE_CONSTRAINT_VIOLATION } from '../global/error.codes';
+import { CreateUserDto } from '../users/dto/create/create-user.dto';
+import { User } from '../users/models/user.entity';
 import { Connection, createConnection, DeleteResult, getConnection, InsertResult, Repository, UpdateResult } from 'typeorm';
 import { CreateTenantAccountOfficerDto } from './dto/create/create-account-officer.dto';
 import { CreateCustomThemeDto } from './dto/create/create-custom-theme.dto';
@@ -21,18 +21,18 @@ import { Billing } from './modules/billings/models/billing.entity';
 import { CreateThemeDto } from './modules/themes/dto/create/create-theme.dto';
 import { Theme } from './modules/themes/models/theme.entity';
 import * as bcrypt from 'bcrypt';
-import { Request, Reply } from 'src/global/custom.interfaces';
+import { Request, Reply } from '../global/custom.interfaces';
 //five imports below are for file upload handling
 import util from 'util'; //for uploaded file streaming to file
 import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, smtpTransportGmail, USE_API_VERSION_IN_URL } from '../global/app.settings';
+import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, mailSender, PROTOCOL, SAAS_API_VERSION, SAAS_PROTOCOL, SAAS_USE_API_VERSION_IN_URL, tenantSuccessfullyCreatedMessage, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
-import { CreateTenantConfigDetailDto } from 'src/tenant-config-details/dto/create-tenant-config-detail.dto';
-import { TenantConfigDetail } from 'src/tenant-config-details/entities/tenant-config-detail.entity';
-import { RegionsService } from 'src/regions/regions.service';
+import { CreateTenantConfigDetailDto } from '../tenant-config-details/dto/create-tenant-config-detail.dto';
+import { TenantConfigDetail } from '../tenant-config-details/entities/tenant-config-detail.entity';
+import { RegionsService } from '../regions/regions.service';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import Redis from 'ioredis'; //remember to also run npm install -D @types/ioredis
 
@@ -57,11 +57,14 @@ export class TenantsService {
         private readonly regionsService: RegionsService
     ) { }
 
-    private redisClients: Map<string, Redis.Redis> = new Map(); //maintain connection by regions and get client when needed. Used by getRedisClient below
+    /**
+     * Maintain connection by regions and get client when needed. Used by getRedisClient below to set/update SaaS properties in redis
+     */
+    private redisClients: Map<string, Redis.Redis> = new Map();
 
     /*CREATE section*/
     /**
-     * 
+     * Create tenant with option to create primary contact as well
      * @param createTenantDto 
      */
     async create(createTenantDto: CreateTenantDto, createPrimaryContact: number, req: Request): Promise<Tenant> {
@@ -69,7 +72,7 @@ export class TenantsService {
             //tenantConfigDetail needs special creation process. Besides, only do so if primary contact is confirmed.
             //Therefore,separate the createTenantConfigDetailDto from createTenantDto
             const { tenantConfigDetail, ...createTenantDtoMod } = createTenantDto;
-            const createTenantConfigDetailDto:CreateTenantConfigDetailDto = tenantConfigDetail;
+            const createTenantConfigDetailDto: CreateTenantConfigDetailDto = tenantConfigDetail;
             createTenantDto = createTenantDtoMod;
             //now create the newTenant without the tenantConfigDetail
             const newTenant = this.tenantRepository.create(createTenantDto);
@@ -79,9 +82,8 @@ export class TenantsService {
             const region = await this.regionsService.findRegionByName(createTenantDto.regionName);
             newTenant.regionRootDomainName = region.rootDomainName;
 
-            if (createPrimaryContact != 1) {//the dto primaryContact part contains the email of the user to set as primary contact
+            if (createPrimaryContact != 1) {//the dto primaryContact part should contain the email of the user to set as primary contact
                 //find the user by primaryEmailAddress and set as Primary Contact
-                //console.log(createPrimaryContact)
                 const primaryContact: User = await this.userRepository.findOne({ where: { primaryEmailAddress: newTenant.primaryContact.primaryEmailAddress } })
 
                 if (primaryContact) {
@@ -106,8 +108,8 @@ export class TenantsService {
 
             //if primary contact was created, check the email and send verification message
             //check if user primary email and then provoke verification process, if unverified ab initio
-            if (createPrimaryContact == 1 && !tenant.primaryContact.isPrimaryEmailAddressVerified) {
-                if (tenant.primaryContact != null && tenant.primaryContact.primaryEmailAddress != null) {
+            if (tenant.primaryContact != null && tenant.primaryContact.primaryEmailAddress != null) {
+                if (createPrimaryContact == 1 && !tenant.primaryContact.isPrimaryEmailAddressVerified) {
                     let user: User = null;
                     user = await this.userRepository.findOne({ where: { primaryEmailAddress: tenant.primaryContact.primaryEmailAddress } });
                     this.sendVerificationEmail(user, req);
@@ -115,8 +117,8 @@ export class TenantsService {
             }
 
             //At this point, we need to decide whether to create the connection details. Only do so if primary Email Address is Verified
-            if(tenant.primaryContact.isPrimaryEmailAddressVerified)
-                await this.createAndSetTenantConfigDetail(tenant.id,createTenantConfigDetailDto);
+            if (tenant.primaryContact.isPrimaryEmailAddressVerified)
+                await this.createAndSetTenantConfigDetail(tenant.id, createTenantConfigDetailDto);
 
             return tenant;
 
@@ -358,19 +360,24 @@ export class TenantsService {
 
     }
 
-    //Pius-note: For scalability, this should really be a microservice of its own, running in another process, reading from the same database as TMM
-    //called by setTenantPropertiesInRedisByRegionName below
+    /**
+     * For scalability, this should really be a microservice of its own, running in another process, reading from the same database as TMM
+     * Called by setTenantPropertiesInRedisByRegionName below
+     * @param regionName 
+     * @returns 
+     */
     async getTenantPropertiesByRegionName(regionName: string) {
 
         const properties = [];
 
         //region is needed for default values
         const region = await this.regionsService.findRegionByName(regionName);
-        const [tenants] = await this.findActiveTenantsByRegionName(regionName);
+        const [tenants] = await this.findActiveTenantsByRegionName(regionName); //this assumes that tenants are not too many in a region. This for example could be 100 tenants, equivalent of 100 schemas per database
         tenants.map((tenant) => {
             const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
             const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
-            const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+            //const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+            const smtpAuth = tenant.tenantConfigDetail.smtpAuth == null ? region.smtpAuth : tenant.tenantConfigDetail.smtpAuth;
             const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
             const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
             const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
@@ -389,7 +396,7 @@ export class TenantsService {
             const tenantConfigDetailRedisProperties = tenant.tenantConfigDetail.redisProperties; //this is just for test in setTenantProperties... below
 
             properties.push({
-                dbProperties, redisProperties, mailerOptions, otherUserOptions, jwtConstants,
+                dbProperties, redisProperties, smtpAuth, otherUserOptions, jwtConstants,
                 authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
                 theme, rootFileSystem, logo, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
             });
@@ -417,7 +424,7 @@ export class TenantsService {
                 sentinels = JSON.parse(prop.redisProperties.sentinels)
                 //redisPropertiesMod = { ...redisProperties, sentinels }
             }
-            //use region name if no tenant specific client
+            //use region name if no tenant specific property
             const redisClientName = prop.tenantConfigDetailRedisProperties == null ? regionName : regionName + "_" + prop.tenantUniquePrefix
             const redisClient = await this.getRedisClient(redisClientName, { ...prop.redisProperties, sentinels }); //replace sentinels with properly formatted one.
 
@@ -446,13 +453,30 @@ export class TenantsService {
                 [`${prop.tenantUniquePrefix}POSTGRES_SSL_KEY`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.key : null,
                 [`${prop.tenantUniquePrefix}POSTGRES_SSL_CERT`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.cert : null,
                 [`${prop.tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: prop.dbProperties.ssl != undefined ? prop.dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
-
+                /*
                 [`${prop.tenantUniquePrefix}SMTP_USER`]: prop.mailerOptions.smtpUser,
                 [`${prop.tenantUniquePrefix}SMTP_PWORD`]: prop.mailerOptions.smtpPword,
                 [`${prop.tenantUniquePrefix}SMTP_SERVICE`]: prop.mailerOptions.smtpService,
                 [`${prop.tenantUniquePrefix}SMTP_SECURE`]: prop.mailerOptions.smtpSecure ? 'true' : 'false',
                 [`${prop.tenantUniquePrefix}SMTP_SERVER`]: prop.mailerOptions.smtpServer,
                 [`${prop.tenantUniquePrefix}SMTP_PORT`]: prop.mailerOptions.smtpPort,
+                */
+
+                [`${prop.tenantUniquePrefix}SMTP_USER`]: prop.smtpAuth.smtpUser,
+                [`${prop.tenantUniquePrefix}SMTP_PWORD`]: prop.smtpAuth.smtpPword,
+                [`${prop.tenantUniquePrefix}SMTP_SERVICE`]: prop.smtpAuth.smtpService,
+                [`${prop.tenantUniquePrefix}SMTP_SECURE`]: prop.smtpAuth.smtpSecure ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}SMTP_HOST`]: prop.smtpAuth.smtpHost,
+                [`${prop.tenantUniquePrefix}SMTP_PORT`]: prop.smtpAuth.smtpPort,
+                [`${prop.tenantUniquePrefix}SMTP_OAUTH`]: prop.smtpAuth.smtpOauth ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}SMTP_CLIENT_ID`]: prop.smtpAuth.smtpClientId,
+                [`${prop.tenantUniquePrefix}SMTP_CLIENT_SECRET`]: prop.smtpAuth.smtpClientSecret,
+                [`${prop.tenantUniquePrefix}SMTP_ACCESS_TOKEN`]: prop.smtpAuth.smtpAccessToken,
+                [`${prop.tenantUniquePrefix}SMTP_REFRESH_TOKEN`]: prop.smtpAuth.smtpRefreshToken,
+                [`${prop.tenantUniquePrefix}SMTP_ACCESS_URL`]: prop.smtpAuth.smtpAccessUrl,
+                [`${prop.tenantUniquePrefix}SMTP_POOL`]: prop.smtpAuth.smtpPool ? 'true' : 'false',
+                [`${prop.tenantUniquePrefix}SMTP_MAXIMUM_CONNECTIONS`]: prop.smtpAuth.smtpMaximumConnections,
+                [`${prop.tenantUniquePrefix}SMTP_MAXIMUM_MESSAGES`]: prop.smtpAuth.smtpMaximumMessages,
 
                 [`${prop.tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: prop.otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
                 [`${prop.tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: prop.otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
@@ -558,13 +582,30 @@ export class TenantsService {
             `${tenantUniquePrefix}POSTGRES_SSL_KEY`,
             `${tenantUniquePrefix}POSTGRES_SSL_CERT`,
             `${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`,
-
+            /*
             `${tenantUniquePrefix}SMTP_USER`,
             `${tenantUniquePrefix}SMTP_PWORD`,
             `${tenantUniquePrefix}SMTP_SERVICE`,
             `${tenantUniquePrefix}SMTP_SECURE`,
             `${tenantUniquePrefix}SMTP_SERVER`,
             `${tenantUniquePrefix}SMTP_PORT`,
+            */
+
+            `${tenantUniquePrefix}SMTP_USER`,
+            `${tenantUniquePrefix}SMTP_PWORD`,
+            `${tenantUniquePrefix}SMTP_SERVICE`,
+            `${tenantUniquePrefix}SMTP_SECURE`,
+            `${tenantUniquePrefix}SMTP_HOST`,
+            `${tenantUniquePrefix}SMTP_PORT`,
+            `${tenantUniquePrefix}SMTP_OAUTH`,
+            `${tenantUniquePrefix}SMTP_CLIENT_ID`,
+            `${tenantUniquePrefix}SMTP_CLIENT_SECRET`,
+            `${tenantUniquePrefix}SMTP_ACCESS_TOKEN`,
+            `${tenantUniquePrefix}SMTP_REFRESH_TOKEN`,
+            `${tenantUniquePrefix}SMTP_ACCESS_URL`,
+            `${tenantUniquePrefix}SMTP_POOL`,
+            `${tenantUniquePrefix}SMTP_MAXIMUM_CONNECTIONS`,
+            `${tenantUniquePrefix}SMTP_MAXIMUM_MESSAGES`,
 
             `${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`,
             `${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`,
@@ -637,7 +678,8 @@ export class TenantsService {
         //Get the properties
         const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
         const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
-        const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+        //const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+        const smtpAuth = tenant.tenantConfigDetail.smtpAuth == null ? region.smtpAuth : tenant.tenantConfigDetail.smtpAuth;
         const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
         const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
         const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
@@ -679,13 +721,29 @@ export class TenantsService {
             [`${tenantUniquePrefix}POSTGRES_SSL_KEY`]: dbProperties.ssl != undefined ? dbProperties.ssl.key : null,
             [`${tenantUniquePrefix}POSTGRES_SSL_CERT`]: dbProperties.ssl != undefined ? dbProperties.ssl.cert : null,
             [`${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: dbProperties.ssl != undefined ? dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
-
+            /*
             [`${tenantUniquePrefix}SMTP_USER`]: mailerOptions.smtpUser,
             [`${tenantUniquePrefix}SMTP_PWORD`]: mailerOptions.smtpPword,
             [`${tenantUniquePrefix}SMTP_SERVICE`]: mailerOptions.smtpService,
             [`${tenantUniquePrefix}SMTP_SECURE`]: mailerOptions.smtpSecure ? 'true' : 'false',
             [`${tenantUniquePrefix}SMTP_SERVER`]: mailerOptions.smtpServer,
             [`${tenantUniquePrefix}SMTP_PORT`]: mailerOptions.smtpPort,
+            */
+            [`${tenantUniquePrefix}SMTP_USER`]: smtpAuth.smtpUser,
+            [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword,
+            [`${tenantUniquePrefix}SMTP_SERVICE`]: smtpAuth.smtpService,
+            [`${tenantUniquePrefix}SMTP_SECURE`]: smtpAuth.smtpSecure ? 'true' : 'false',
+            [`${tenantUniquePrefix}SMTP_HOST`]: smtpAuth.smtpHost,
+            [`${tenantUniquePrefix}SMTP_PORT`]: smtpAuth.smtpPort,
+            [`${tenantUniquePrefix}SMTP_OAUTH`]: smtpAuth.smtpOauth ? 'true' : 'false',
+            [`${tenantUniquePrefix}SMTP_CLIENT_ID`]: smtpAuth.smtpClientId,
+            [`${tenantUniquePrefix}SMTP_CLIENT_SECRET`]: smtpAuth.smtpClientSecret,
+            [`${tenantUniquePrefix}SMTP_ACCESS_TOKEN`]: smtpAuth.smtpAccessToken,
+            [`${tenantUniquePrefix}SMTP_REFRESH_TOKEN`]: smtpAuth.smtpRefreshToken,
+            [`${tenantUniquePrefix}SMTP_ACCESS_URL`]: smtpAuth.smtpAccessUrl,
+            [`${tenantUniquePrefix}SMTP_POOL`]: smtpAuth.smtpPool ? 'true' : 'false',
+            [`${tenantUniquePrefix}SMTP_MAXIMUM_CONNECTIONS`]: smtpAuth.smtpMaximumConnections,
+            [`${tenantUniquePrefix}SMTP_MAXIMUM_MESSAGES`]: smtpAuth.smtpMaximumMessages,
 
             [`${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
             [`${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
@@ -1258,7 +1316,8 @@ export class TenantsService {
                 //Get the tenant detail properties. Defaults to region if tenantConfigDetail is null
                 const dbProperties = tenantConfigDetail.dbProperties == null ? region.dbProperties : tenantConfigDetail.dbProperties;
                 const redisProperties = tenantConfigDetail.redisProperties == null ? region.redisProperties : tenantConfigDetail.redisProperties;
-                const mailerOptions = tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenantConfigDetail.mailerOptions;
+                //const mailerOptions = tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenantConfigDetail.mailerOptions;
+                const smtpAuth = tenantConfigDetail.smtpAuth == null ? region.smtpAuth : tenantConfigDetail.smtpAuth;
                 const otherUserOptions = tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenantConfigDetail.otherUserOptions;
                 const jwtConstants = tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenantConfigDetail.jwtConstants;
                 const authEnabled = tenantConfigDetail.authEnabled == null ? region.authEnabled : tenantConfigDetail.authEnabled;
@@ -1342,12 +1401,29 @@ export class TenantsService {
                     [`${tenantUniquePrefix}POSTGRES_SSL_CERT`]: dbProperties.ssl != undefined ? dbProperties.ssl.cert : null,
                     [`${tenantUniquePrefix}POSTGRES_SSL_REJECT_UNAUTHORIZED`]: dbProperties.ssl != undefined ? dbProperties.ssl.rejectUnauthorized ? 'true' : 'false' : null,
 
+                    /*
                     [`${tenantUniquePrefix}SMTP_USER`]: mailerOptions.smtpUser,
                     [`${tenantUniquePrefix}SMTP_PWORD`]: mailerOptions.smtpPword,
                     [`${tenantUniquePrefix}SMTP_SERVICE`]: mailerOptions.smtpService,
                     [`${tenantUniquePrefix}SMTP_SECURE`]: mailerOptions.smtpSecure ? 'true' : 'false',
                     [`${tenantUniquePrefix}SMTP_SERVER`]: mailerOptions.smtpServer,
                     [`${tenantUniquePrefix}SMTP_PORT`]: mailerOptions.smtpPort,
+                    */
+                    [`${tenantUniquePrefix}SMTP_USER`]: smtpAuth.smtpUser,
+                    [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword,
+                    [`${tenantUniquePrefix}SMTP_SERVICE`]: smtpAuth.smtpService,
+                    [`${tenantUniquePrefix}SMTP_SECURE`]: smtpAuth.smtpSecure ? 'true' : 'false',
+                    [`${tenantUniquePrefix}SMTP_HOST`]: smtpAuth.smtpHost,
+                    [`${tenantUniquePrefix}SMTP_PORT`]: smtpAuth.smtpPort,
+                    [`${tenantUniquePrefix}SMTP_OAUTH`]: smtpAuth.smtpOauth ? 'true' : 'false',
+                    [`${tenantUniquePrefix}SMTP_CLIENT_ID`]: smtpAuth.smtpClientId,
+                    [`${tenantUniquePrefix}SMTP_CLIENT_SECRET`]: smtpAuth.smtpClientSecret,
+                    [`${tenantUniquePrefix}SMTP_ACCESS_TOKEN`]: smtpAuth.smtpAccessToken,
+                    [`${tenantUniquePrefix}SMTP_REFRESH_TOKEN`]: smtpAuth.smtpRefreshToken,
+                    [`${tenantUniquePrefix}SMTP_ACCESS_URL`]: smtpAuth.smtpAccessUrl,
+                    [`${tenantUniquePrefix}SMTP_POOL`]: smtpAuth.smtpPool ? 'true' : 'false',
+                    [`${tenantUniquePrefix}SMTP_MAXIMUM_CONNECTIONS`]: smtpAuth.smtpMaximumConnections,
+                    [`${tenantUniquePrefix}SMTP_MAXIMUM_MESSAGES`]: smtpAuth.smtpMaximumMessages,
 
                     [`${tenantUniquePrefix}ResetPasswordMailOptionSettings_TextTemplate`]: otherUserOptions.resetPasswordMailOptionSettings_TextTemplate,
                     [`${tenantUniquePrefix}ConfirmEmailMailOptionSettings_TextTemplate`]: otherUserOptions.confirmEmailMailOptionSettings_TextTemplate,
@@ -1412,9 +1488,34 @@ export class TenantsService {
                 followed by invoking an nginx reload via shell command in nodejs.*/
 
                 //Send mail to tenant after successful creation
-                
+                //construct and send email using nodemailer
+                const saasGlobalPrefixUrl = SAAS_USE_API_VERSION_IN_URL ? `/${SAAS_API_VERSION}` : '';
+                const url = `${SAAS_PROTOCOL}://${uniqueName}${saasGlobalPrefixUrl}`;
+                //Get primary contact information
+                const [primaryContactfirstName, primaryContactLastName, primaryContactEmailAddress] = await this.getPrimaryContactNameAndEmail(tenantId);
+                const mailText = tenantSuccessfullyCreatedMessage.textTemplate.replace('{url}', url).replace('{name}', `${primaryContactfirstName} ${primaryContactLastName}`);
 
-            })
+                //mailOptions
+                const mailOptions: SendMailOptions = {
+                    to: primaryContactEmailAddress,
+                    from: tenantSuccessfullyCreatedMessage.from,
+                    subject: tenantSuccessfullyCreatedMessage.subject,
+                    text: mailText,
+                };
+
+                //send mail
+                /*
+                smtpTransportGmail.sendMail(mailOptions, async (error: Error) => {
+                    //if (error)
+                    //    throw error; //throw error that will be caught at the end?
+                    console.log(error);
+                });
+                */
+
+                mailSender(mailOptions);
+
+
+            });
         } catch (error) {
             //attempt to drop entity schema if already created
             if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -1661,6 +1762,7 @@ export class TenantsService {
                 const url = `${req.protocol || PROTOCOL}://${req.hostname}${globalPrefixUrl}/users/confirm-primary-email/${token}`;
                 const mailText = confirmEmailMailOptionSettings.textTemplate.replace('{url}', url);
 
+
                 //mailOptions
                 const mailOptions: SendMailOptions = {
                     to: user.primaryEmailAddress,
@@ -1670,11 +1772,14 @@ export class TenantsService {
                 };
 
                 //send mail
+                /*
                 smtpTransportGmail.sendMail(mailOptions, async (error: Error) => {
                     //if (error)
                     //    throw error; //throw error that will be caught at the end?
                     console.log(error);
                 });
+                */
+                mailSender(mailOptions);
             });
         }
     }
@@ -1757,6 +1862,18 @@ export class TenantsService {
             }
 
         }
+    }
+
+    async getPrimaryContactNameAndEmail(tenantId: number) {
+        //const tenant = await this.tenantRepository.findOne(tenantId);
+        //user querybuilder to avoid overfetching
+        const tenant = await this.tenantRepository.createQueryBuilder("tenant")
+            .select("tenant.id")
+            .leftJoinAndSelect("tenant.primaryContact", "primaryContact")
+            .where("tenant.id = :tenantId", { tenantId })
+            .getOne()
+
+        return [tenant.primaryContact.firstName, tenant.primaryContact.lastName, tenant.primaryContact.primaryEmailAddress];
     }
 
 

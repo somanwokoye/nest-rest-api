@@ -59,6 +59,7 @@ export class CreateRegionDto {
         password?: string,
         ca: string | null //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
+    /*
     readonly mailerOptions?: {
         smtpUser: string,
         smtpPword: string, //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
@@ -75,7 +76,24 @@ export class CreateRegionDto {
         refreshToken: string,
         accessToken: string,
         expires: number
-    }
+    }*/
+    readonly smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
+        smtpUser: string,
+        smtpPword: string,
+        smtpHost: string,//smtpService below overrides smtpServer
+        smtpPort: number,
+        smtpService: string,
+        smtpSecure: boolean,
+        smtpOauth: boolean,
+        smtpClientId: string,
+        smtpClientSecret: string,
+        smtpAccessToken: string,
+        smtpRefreshToken: string,
+        smtpAccessUrl: string,
+        smtpPool: boolean,
+        smtpMaximumConnections: number,
+        smtpMaximumMessages: number
+    };
     readonly jwtConstants?: {
         jwtSecretKeyExpiration: number, //e.g. 300
         jwtRefreshSecretKeyExpiration: string, //e.g. '7d'
