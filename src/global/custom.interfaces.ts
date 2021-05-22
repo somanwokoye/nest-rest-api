@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { Tenant } from 'src/tenants/models/tenant.entity';
-import { User } from 'src/users/models/user.entity';
+import { Tenant } from '../tenants/models/tenant.entity';
+import { User } from '../users/models/user.entity';
 
 export interface Reply extends FastifyReply{
   view(page: string, data?: object): FastifyReply

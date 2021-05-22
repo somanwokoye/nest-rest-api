@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+
 /**
  * Database configuration module for reading properties from environment variables
  * Exported as DatabaseModule
@@ -36,7 +37,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         }
       }
       })
-    })
+    }),
   ],
 })
 export class DatabaseModule {}

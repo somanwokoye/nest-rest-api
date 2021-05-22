@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { LandLordRoles } from "../../global/app.settings";
+import { LandLordRoles } from "src/global/app.settings";
 import { AuthTokenPayload } from "src/global/custom.interfaces";
 
 @Injectable()

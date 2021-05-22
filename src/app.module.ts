@@ -23,7 +23,7 @@ import { RegionsModule } from './regions/regions.module';
     UsersModule,
     RolesModule,
     TenantConfigDetailsModule,
-    //AuthModule,
+    AuthModule,
     SearchModule,
     //load and parse the environment .env file and store the result in private structure that you can access through the ConfigService
     //Alternatively, I am using dotenv directly from from app.settings.ts as ConfigService can only be injected into class and can also not be injected into Entity even though it is a class

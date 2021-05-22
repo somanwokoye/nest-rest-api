@@ -4,7 +4,7 @@
 import nodemailer, { SendMailOptions } from "nodemailer";
 import { google } from "googleapis";
 const OAuth2 = google.auth.OAuth2;
-import Mail from 'nodemailer/lib/mailer';
+//import Mail from 'nodemailer/lib/mailer';
 /*Below is to directly read .env file from settings. 
 See https://www.npmjs.com/package/dotenv.
 It is used to get the particulars of Gmail account for SMTP mailer
@@ -17,12 +17,16 @@ import dotenv from 'dotenv';
 export const parsedEnv = dotenv.config().parsed; //only load what has been parsed from .env file
 
 //user management
+/*
 export const PASSWORD_RESET_EXPIRATION = 86400000 * 2 //24 hours * 2 in milliseconds
-
 export const EMAIL_VERIFICATION_EXPIRATION = 86400000 * 2 //24 hours * 2 in milliseconds
-
 export const LOGO_FILE_SIZE_LIMIT = 1000 * 1024;
 export const PHOTO_FILE_SIZE_LIMIT = 1000 * 1024;
+*/
+export const PASSWORD_RESET_EXPIRATION = parseInt(parsedEnv.PASSWORD_RESET_EXPIRATION);
+export const EMAIL_VERIFICATION_EXPIRATION = parseInt(parsedEnv.EMAIL_VERIFICATION_EXPIRATION);
+export const LOGO_FILE_SIZE_LIMIT = parseInt(parsedEnv.LOGO_FILE_SIZE_LIMIT);
+export const PHOTO_FILE_SIZE_LIMIT = parseInt(parsedEnv.PHOTO_FILE_SIZE_LIMIT);
 
 //Prepare nodemailer using sendgrid. I signed up for one. 
 //See https://nodemailer.com/smtp/; https://nodemailer.com/smtp/#authentication
@@ -191,14 +195,14 @@ export const tenantSuccessfullyCreatedMessage = {
 
 }
 
-export const SAAS_PROTOCOL: "http" | "https" = "http";
+export const SAAS_PROTOCOL: "http" | "https" = parsedEnv.DEFAULT_HTTP_PROTOCOL as 'http' | 'https';
 export const SAAS_USE_API_VERSION_IN_URL: boolean = true;
 export const SAAS_API_VERSION: string = "v1"
 
 
 
 
-export const APP_NAME: string = "Tenant Manager";
+export const APP_NAME: string = "Tenant Management System (TMS)";
 
 export const APP_DESCRIPTION: string = "This app is designed by Pius Onobhayedo for the management of tenants for any Web-based multitenant application";
 
@@ -232,7 +236,7 @@ export enum TenantRoles { //better use this for creating roles, so as to ensure 
     User = 'user'
 }
 
-export const PROTOCOL: "https" | "http" = "http";
+export const PROTOCOL: "https" | "http" = parsedEnv.HTTP_PROTOCOL as 'https' | 'http';
 
 
 //For JWT
@@ -247,7 +251,7 @@ export const jwtConstants = {
 export const fbConstants = {
     APP_ID: parsedEnv.APP_ID,
     APP_SECRET: parsedEnv.APP_SECRET,
-    CALLBACK_URL: API_VERSION != '' ? `http://localhost:3003/${API_VERSION}/auth/facebook/redirect` : `http://localhost:3003/auth/facebook/redirect`,
+    CALLBACK_URL: API_VERSION != '' ? `${PROTOCOL}://${parsedEnv.APP_ROOT_HTTP_URL}/${API_VERSION}/auth/facebook/redirect` : `http://${parsedEnv.APP_ROOT_HTTP_URL}/auth/facebook/redirect`,
     SCOPE: 'email, user_gender, user_birthday, ', //see https://developers.facebook.com/docs/permissions/reference for possibilities
     PROFILE_FIELDS: ['id', 'displayName', 'photos', 'emails', 'gender', 'name', 'profileUrl'],
     CREATE_USER_IF_NOT_EXISTS: true
@@ -258,7 +262,7 @@ export const googleConstants = {
     GOOGLE_API_KEY: parsedEnv.GOOGLE_API_KEY,
     GOOGLE_OAUTH2_CLIENT_ID: parsedEnv.GOOGLE_OAUTH2_CLIENT_ID,
     GOOGLE_OAUTH2_CLIENT_SECRET: parsedEnv.GOOGLE_OAUTH2_CLIENT_SECRET,
-    GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION != '' ? `http://localhost:3003/${API_VERSION}/auth/google/redirect` : `http://localhost:3003/auth/google/redirect`,
+    GOOGLE_OAUTH2_REDIRECT_URI: API_VERSION != '' ? `${PROTOCOL}://${parsedEnv.APP_ROOT_HTTP_URL}/${API_VERSION}/auth/google/redirect` : `http://${parsedEnv.APP_ROOT_HTTP_URL}/auth/google/redirect`,
     GOOGLE_OAUTH2_SCOPE: 'openid profile email https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/profile.agerange.read',//see https://developers.google.com/people/api/rest/v1/people/get under Authorization Scopes section
     CREATE_USER_IF_NOT_EXISTS: true
 }

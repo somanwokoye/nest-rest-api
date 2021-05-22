@@ -1,23 +1,23 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/models/user.entity';
-import { JwtService } from '@nestjs/jwt';
+import { AuthTokenPayload, Request, Reply } from '../global/custom.interfaces';
 import { API_VERSION, fbConstants, googleConstants, jwtConstants } from '../global/app.settings';
-import { AuthTokenPayload, Reply, Request } from '../global/custom.interfaces';
-import { FacebookProfileDto } from './dtos/facebook-profile.dto';
-import { Strategy, Client, UserinfoResponse, TokenSet, Issuer, generators } from 'openid-client';
+import { FastifyInstance } from 'fastify';
+import { HttpAdapterHost } from '@nestjs/core';
+import { SignOptions } from 'jsonwebtoken';
+import jwt_decode from 'jwt-decode';
 import { GoogleProfileDto } from './dtos/google-profile.dto';
-import { GoogleProfile } from 'src/users/models/google-profile.entity';
-
-
+import { FacebookProfileDto } from './dtos/facebook-profile.dto';
+import { FbConstants } from './auth.interfaces';
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly usersService: UsersService,
-        private jwtService: JwtService
-    ) { }
+        private adapterHost: HttpAdapterHost //note that HttpAdapterHost has to be imported from @nestjs/core.
+        ) {}
 
     /**
      * this function will be called each time a user is to be validated on the basis of primaryEmailAddress and password
@@ -26,41 +26,47 @@ export class AuthService {
      * @param email 
      * @param password 
      */
-    async validateUser(email: string, passwordPlainText: string) {
-        const user = await this.usersService.findByPrimaryEmailAddress(email);
+     async validateUser(email: string, passwordPlainText: string) {
+        try {
 
-        if (user) {
-            //use bcrypt to compare plaintext password and the hashed one in database
-            const isPasswordMatched = await bcrypt.compare(
-                passwordPlainText,
-                user.passwordHash
-            );
+            const user = await this.usersService.findByPrimaryEmailAddress(email);
 
-            if (!isPasswordMatched) {
-                return null; //password does not match
+            if (user) {
+                //use bcrypt to compare plaintext password and the hashed one in database
+                const isPasswordMatched = await bcrypt.compare(
+                    passwordPlainText,
+                    user.passwordHash
+                );
+
+                if (!isPasswordMatched) {
+                    return null; //password does not match
+                }
+
+                //read off passwordHash, tokens, etc. so that they are not carried around with user object.
+                const { passwordHash, passwordSalt, resetPasswordToken,
+                    primaryEmailVerificationToken, backupEmailVerificationToken,
+                    emailVerificationTokenExpiration, otpSecret, refreshTokenHash,
+                    ...restOfUserFields } = user;
+
+                return restOfUserFields;//alternatively, consider returning just a few necessary fields to avoid overfetching.
+            } else {
+                return null; //user does not exist
             }
-
-            //read off passwordHash, tokens, etc. so that they are not carried around with user object.
-            const { passwordHash, passwordSalt, resetPasswordToken,
-                primaryEmailVerificationToken, backupEmailVerificationToken,
-                emailVerificationTokenExpiration, otpSecret, refreshTokenHash,
-                ...restOfUserFields } = user;
-
-            return restOfUserFields;//alternatively, consider returning just a few necessary fields to avoid overfetching.
-        } else {
-            return null; //user does not exist
+        } catch (error) {
+            console.log(error);
+            return null;
         }
     }
 
     /**
-     * This login module, called to sign the user and return token, requires that JwtModule is properly registered 
-     * in auth.module.ts.
      * @param user 
      */
-    async login(user: User) {
-        const access_token = await this.createAccessToken(user);
-        //we need to generate refresh token, save to database and send it with the primary
-        const refresh_token = await this.createRefreshToken(user);
+     async login(user: User, req: Request, reply: Reply) {//the req and reply here is because of multitenancy
+        //
+        const access_token = await this.createAccessToken(user, req, reply);
+
+        //we need to generate refresh token, save to database and send it with the primary access_token
+        const refresh_token = await this.createRefreshToken(user, req, reply);
 
         //below we return both tokens in an object
         return {
@@ -68,13 +74,15 @@ export class AuthService {
         };
     }
     /**
-     * 
+     * Called when access_token has expired and client needs to renew
      * @param user 
+     * @param req 
+     * @param reply 
+     * @returns 
      */
-    //async refresh(user: User, refreshToken: string) {//still send back the previous refresh token.
-    async refresh(user: User) {//no need to send back refreshToken. Client already has it
+    async refresh(user: User, req: Request, reply: Reply) {//no need to send back refreshToken. Client already has it
         //We just need to refresh the accessToken. No creation of new refreshToken and saving to database is required.
-        const access_token = await this.createAccessToken(user);
+        const access_token = await this.createAccessToken(user, req, reply);
 
         return {
             access_token
@@ -85,10 +93,11 @@ export class AuthService {
      * Suitable for Web browser access. Invoked from loginweb in AuthController!
      * @param user 
      */
-    async loginAndReturnCookies(user: User) {
-        const access_token = await this.createAccessToken(user);
+    async loginAndReturnCookies(user: User, req: Request, reply: Reply) {
+
+        const access_token = await this.createAccessToken(user, req, reply);
         const accessTokenCookie = `Authentication=${access_token}; HttpOnly; Path=/; Max-Age=${jwtConstants.SECRET_KEY_EXPIRATION}`;
-        const refresh_token = await this.createRefreshToken(user);
+        const refresh_token = await this.createRefreshToken(user, req, reply);
         const refreshTokenCookie = `Refresh=${refresh_token}; HttpOnly; Path=/; Max-Age=${jwtConstants.REFRESH_SECRET_KEY_EXPIRATION}`;
         //return the two cookies in an array.
         return [accessTokenCookie, refreshTokenCookie]
@@ -96,8 +105,11 @@ export class AuthService {
     /**
      * Invoked by login to create token for user
      * @param user 
+     * @param req 
+     * @param reply 
+     * @returns 
      */
-    async createAccessToken(user: User) {
+    async createAccessToken(user: User, req: Request, reply: Reply) {
         /**
          * Here you decide what should be returned along with the standard exp and iat. See https://scotch.io/tutorials/the-anatomy-of-a-json-web-token
          * The sub is the conventional name for packaging the subject of the token. You can put there
@@ -108,17 +120,22 @@ export class AuthService {
             username: user.primaryEmailAddress,
             sub: {
                 id: user.id,
+                landlord: user.landlord,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                landlord: user.landlord,
                 roles: user.roles.map((role) => { return role.name })
             }
         }
 
-        const access_token = this.jwtService.sign(payload, {
-            secret: jwtConstants.SECRET,
-            expiresIn: jwtConstants.SECRET_KEY_EXPIRATION
-        });
+        //get the instance of fastifyAdapter from nestjs. See https://docs.nestjs.com/faq/http-adapter
+        const fastifyInstance: FastifyInstance = this.adapterHost.httpAdapter.getInstance();
+
+        let altOptions: SignOptions = Object.assign({}, { ...fastifyInstance.jwt.options.sign });
+
+        altOptions.issuer = req.hostname; //adjust the issuer to the hostname. This is relevant to multitenant. Optional here but could be an added security
+        altOptions.expiresIn = jwtConstants.SECRET_KEY_EXPIRATION;
+
+        const access_token = await reply.jwtSign(payload, altOptions);
 
         return access_token;
     }
@@ -127,7 +144,7 @@ export class AuthService {
      * refresh is used to generate a refresh token, saved to database and returned. It is called from login above
      * @param user 
      */
-    async createRefreshToken(user: User) {
+    async createRefreshToken(user: User, req: Request, reply: Reply) {
         /**
          * Here you decide what should be returned along with the standard exp and iat. See https://scotch.io/tutorials/the-anatomy-of-a-json-web-token
          * The sub is the conventional name for packaging the subject of the token. You can put there
@@ -138,18 +155,19 @@ export class AuthService {
             username: user.primaryEmailAddress,
             sub: {
                 id: user.id,
+                landlord: user.landlord,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                landlord: user.landlord,
                 roles: user.roles.map((role) => { return role.name })
             }
         }
+        //get the instance of fastifyAdapter from nestjs. See https://docs.nestjs.com/faq/http-adapter
+        const fastifyInstance: FastifyInstance = this.adapterHost.httpAdapter.getInstance();
 
-        const refresh_token = this.jwtService.sign(payload, {
-            secret: jwtConstants.REFRESH_SECRET,
-            expiresIn: jwtConstants.REFRESH_SECRET_KEY_EXPIRATION
-        });
-
+        let altOptions: SignOptions = Object.assign({}, { ...fastifyInstance.jwt.options.sign });
+        altOptions.issuer = req.hostname; //set the issuer to the hostname. Only necessary for multitenant. Could be extra security here. 
+        altOptions.expiresIn = jwtConstants.REFRESH_SECRET_KEY_EXPIRATION;
+        const refresh_token = await reply.jwtSign(payload, altOptions);
         //save it to database before return. //Note: it will be more efficient to have used redis cache
         await this.usersService.setRefreshTokenHash(refresh_token, user.id);
 
@@ -162,10 +180,9 @@ export class AuthService {
      * @param refreshToken 
      * @param userId 
      */
-    async validateRefreshToken(refreshToken: string, userId: number) {
+    async validateRefreshToken(refreshToken: string, userId: number, req: Request) {
         //I created the findById in UsersService for this purpose and included addSelect for the refreshTokenHash
         const user = await this.usersService.findById(userId);//Note: it will be more efficient to have used redis cache
-
 
         const isRefreshTokenMatched = await bcrypt.compare(
             refreshToken,
@@ -183,28 +200,85 @@ export class AuthService {
             return null; //invalid refresh token
         }
     }
+
+
     /**
-     * Called from controller to delete refreshToken from database on logout
-     * @param userId 
+     * Logout user
+     * @param req 
+     * @returns 
      */
-    async logout(userId: number) {
-        //Delete refreshToken from database or redis, depending on what is in use
-        await this.usersService.updateUser(userId, { refreshTokenHash: null })
-        const redirectUrl = `/${API_VERSION}`
-        return redirectUrl //return where the client should redirect to. This can be a setting.
+    async logout(req: Request) {
+        const redirectUrl = `/${API_VERSION}`;
+        try {
+            const accessToken = req.headers.authorization;
+            //get the user from the accessToken
+            const decodedAccessToken: AuthTokenPayload = jwt_decode(accessToken) as AuthTokenPayload;
+            const userId = decodedAccessToken.sub.id;
+            await this.usersService.updateUser(userId, { refreshTokenHash: null });
+            return redirectUrl //return where the client should redirect to. This can be a setting.
+        } catch (error) {
+            //throw new InternalServerErrorException(error.message);
+            console.log(error.message);
+            //simply go to homepage rather than throw error
+            return redirectUrl
+        }
+    }
+
+    /* Time to setup login that will return jwt for authenticated Google user */
+    async loginGoogleUser(googleProfile: GoogleProfileDto, req: Request, reply: Reply) {
+
+        //get user if already in database, and send
+        let user = await this.usersService.findByGoogleId(googleProfile.googleId);
+
+        if (!user) {
+            //check to see if the user with the google email address as primaryEmailAddress exists
+            user = await this.usersService.findByPrimaryEmailAddress(googleProfile.email);
+
+            if (user) {
+                if (user.isPrimaryEmailAddressVerified) {
+                    //this user has a verified primary email address which is the same as that of Google. Associate them
+                    this.usersService.setGoogleProfile(user.id, googleProfile);
+                } else {
+                    //problem: throw constraint exception. May be better to advice confirmation but consider security
+                    this.usersService.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
+                    throw new UnauthorizedException("Confirmation of email already associated with your account is required");
+                }
+            }
+        } else {
+            //user is already in the database. Update the Google tokens. I did not do this for facebook because I am not saving the facebook tokens. I will however also need to do so for facebook if writing code to query more Facebook APIs
+            await this.usersService.setGoogleProfile(user.id, googleProfile);
+        }
+
+        //If user does not exist at all after all the above checks, check googleConstants to see if create user if not exists
+        if (!user && googleConstants.CREATE_USER_IF_NOT_EXISTS) {
+            //create the user
+            user = await this.usersService.createFromGoogleProfile(googleProfile);
+        }
+
+        if (user) {
+            const access_token = await this.createAccessToken(user, req, reply);
+            //we need to generate refresh token, save to database and send it with the primary
+            const refresh_token = await this.createRefreshToken(user, req, reply);
+
+            //below we return both tokens in an object
+
+            return {
+                access_token, refresh_token
+            };
+        } else {
+            throw new UnauthorizedException;
+        }
     }
 
     /* Time to setup login that will return jwt for authenticated facebook user */
-    async loginFacebookUser(req: Request) {
-
-        const facebookProfile: FacebookProfileDto = req.user.facebookProfile;
+    async loginFacebookUser(facebookProfile: FacebookProfileDto, req: Request, reply: Reply) {
 
         //get user if already in database, and send
-        let user = await this.usersService.findByFacebookId(facebookProfile.facebookId)
+        let user = await this.usersService.findByFacebookId(facebookProfile.facebookId);
 
         if (!user) {
             //check to see if the user with the facebook email address as primaryEmailAddress exists
-            user = await this.usersService.findByPrimaryEmailAddress(facebookProfile.emails[0].value);
+            user = await this.usersService.findByPrimaryEmailAddress(facebookProfile.email);
 
             if (user) {
                 if (user.isPrimaryEmailAddressVerified) {
@@ -219,63 +293,17 @@ export class AuthService {
             }
         }
 
-        //user does not exist at all
+        //user does not exist at all. Check fbConstants to see if create user if not exists
+
         if (!user && fbConstants.CREATE_USER_IF_NOT_EXISTS) {
             //create the user
-            user = await this.usersService.createFromFacebookProfile(facebookProfile)
+            user = await this.usersService.createFromFacebookProfile(facebookProfile);
         }
 
         if (user) {
-            const access_token = await this.createAccessToken(user);
+            const access_token = await this.createAccessToken(user, req, reply);
             //we need to generate refresh token, save to database and send it with the primary
-            const refresh_token = await this.createRefreshToken(user);
-
-            //below we return both tokens in an object
-
-            return {
-                access_token, refresh_token
-            };
-        } else {
-            throw new UnauthorizedException;
-        }
-    }
-
-    /* Time to setup login that will return jwt for authenticated Google user */
-    async loginGoogleUser(googleProfile: GoogleProfileDto, req: Request) {
-
-        //get user if already in database, and send
-        let user = await this.usersService.findByGoogleId(googleProfile.googleId)
-
-        if (!user) {
-            //check to see if the user with the google email address as primaryEmailAddress exists
-            user = await this.usersService.findByPrimaryEmailAddress(googleProfile.email);
-
-            if (user) {
-                if (user.isPrimaryEmailAddressVerified) {
-                    //this user has a verified primary email address which is the same as that of Google. Associate them
-                    this.usersService.setGoogleProfile(user.id, googleProfile);
-                } else {
-                    //problem: throw constraint exception. May be better to advice confirmation but consider security
-                    this.usersService.confirmEmailRequest(user.primaryEmailAddress, null, true, req)
-                    throw new UnauthorizedException("Confirmation of email already associated with your account is required")
-
-                }
-            }
-        }else{
-            //user is already in the database. Update the Google tokens. I did not do this for facebook because I am not saving the facebook tokens. I will however also need to do so for facebook if writing code to query more Facebook APIs
-            await this.usersService.setGoogleProfile(user.id, googleProfile);
-        }
-
-        //user does not exist at all
-        if (!user && googleConstants.CREATE_USER_IF_NOT_EXISTS) {
-            //create the user
-            user = await this.usersService.createFromGoogleProfile(googleProfile)
-        }
-
-        if (user) {
-            const access_token = await this.createAccessToken(user);
-            //we need to generate refresh token, save to database and send it with the primary
-            const refresh_token = await this.createRefreshToken(user);
+            const refresh_token = await this.createRefreshToken(user, req, reply);
 
             //below we return both tokens in an object
 
@@ -288,4 +316,3 @@ export class AuthService {
     }
 
 }
-

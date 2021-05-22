@@ -1,4 +1,5 @@
-import { User } from "../../users/models/user.entity";
+import { CreateBaseAbstractDto } from "src/global/create-base-abstract.dto";
+import { User } from "src/users/models/user.entity";
 
 //This is deconstructed from entity which is deconstructed from profile
 export class FacebookProfileDto {
@@ -7,10 +8,10 @@ export class FacebookProfileDto {
     facebookId?: string
     displayName?: string
     photos?: {value: string}[]
-    email?: string
+    emails?: {value: string, type?: string}[]
     gender?: string
     name?: {familyName: string, givenName: string}
-    photoUrl?: string
+    profileUrl?: string
 
 
 }

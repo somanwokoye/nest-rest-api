@@ -23,6 +23,10 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 import fastifySecureSession from 'fastify-secure-session';
 
+//Below is for jwt without using passport which has been built for express
+import jwt from 'fastify-jwt';
+import { jwtDefaultOptions } from './auth/auth.settings';
+
 async function bootstrap() {
 
   //The factory below uses Express by default. Commented out to use Fastify instead
@@ -65,6 +69,8 @@ async function bootstrap() {
   ));
   */
 
+  /* fastify-jwt */
+  app.register(jwt, { ...jwtDefaultOptions });
   /**
    * Pius note: You can set global prefix for routes e.g. for versioning purpose
    */

@@ -307,13 +307,13 @@ export default class UsersSearchService implements OnModuleInit {
                 body: {
                     query: {
                         match: {
-                            id: userId,
+                            id: userId
                         }
                     }
                 }
             })
         } catch (error) {
-            console.log(error)
+            console.log(`index remove error: ${error.message}`)
         }
     }
 
@@ -369,7 +369,7 @@ export default class UsersSearchService implements OnModuleInit {
             await this.remove(user.id) //remove
             await this.indexUser(user) //index again
         }catch(error){
-            console.log(error)
+            console.log(error.message)
         }
     }
     

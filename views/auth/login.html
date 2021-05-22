@@ -49,22 +49,24 @@
             </fieldset>
         </form>
         <div class="box field is-grouped">
-            <button id="google-login-button" class="button is-link control">
-                <span class="icon">
-                    <i class="fab fa-google"></i>
-                </span>
-                <span>Login with Google</span>
-            </button>
-            <button id="fb-login-button" class="button is-link control">
-                <span class="icon">
-                    <i class="fab fa-facebook"></i>
-                </span>
-                <span>Login with Facebook</span>
-            </button>
+            <div class="container">
+                <button id="google-login-button" class="button is-link control">
+                    <span class="icon">
+                        <i class="fab fa-google"></i>
+                    </span>
+                    <span>Login with Google</span>
+                </button>
+                <button id="fb-login-button" class="button is-link control">
+                    <span class="icon">
+                        <i class="fab fa-facebook"></i>
+                    </span>
+                    <span>Login with Facebook</span>
+                </button>
+            </div>
         </div>
         <section class="section">
             <div class="container">
-                <div id="notification" class="notification container is-hidden animated slideInUp">
+                <div id="notification" class="notification {{notificationColorClass}} container animated slideInUp {{'' if notificationShow else 'is-hidden'}}">
                     <button class="delete"></button>
                     <div id="notificationMessage">
                         {{notificationMessage}}

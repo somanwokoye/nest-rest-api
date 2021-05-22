@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiBody, ApiConsumes, ApiCreatedResponse, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBody, ApiConsumes, ApiCreatedResponse, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Reply } from 'src/global/custom.interfaces';
 import { GenericBulmaNotificationResponseDto } from 'src/global/generic.dto';
 import { CreateRoleDto } from 'src/roles/dto/create/create-role.dto';
@@ -496,18 +496,21 @@ export class UsersController {
         return this.usersService.confirmEmail(token, false, reply);
     }
 
+    @ApiQuery({ name: 'search-string' })
     @Get('search-and-get-users') //search users and check users found in database and return full user objects
     async searchAndGetUsers(@Query() query: string) {
         const searchString: string = query['search-string']
         return await this.usersService.searchForUsers(searchString, false);
     }
 
+    @ApiQuery({ name: 'search-string' })
     @Get('search') //search users and return elastic search hits. Client takes responsibility for the rest. Useful for listing search results with links to fetch details afterwards
     async search(@Query() query: string) {
         const searchString: string = query['search-string']
         return await this.usersService.searchForUsers(searchString, true);
     }
 
+    @ApiQuery({ name: 'search-string' })
     @Get('suggest')
     async suggest(@Query() query: string) {
         const searchString: string = query['search-string']

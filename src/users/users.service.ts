@@ -93,7 +93,7 @@ export class UsersService {
             firstName: facebookProfileDto.name.givenName,
             lastName: facebookProfileDto.name.familyName,
             commonName: facebookProfileDto.displayName,
-            primaryEmailAddress: facebookProfileDto.emails[0].value,
+            primaryEmailAddress: facebookProfileDto.email,
             isPrimaryEmailAddressVerified: true,
             passwordHash: randomstring.generate(),
             isPasswordChangeRequired: true,
@@ -357,7 +357,7 @@ export class UsersService {
                 .where("id = :id", { id: userId })
                 .execute();
             //update search index before return
-            this.usersSearchService.update(userToSave as User)
+            this.usersSearchService.update(await this.getUserForIndexing(userId));
 
             //remove any cache named users
             await this.connection.queryResultCache.remove(["users"])
@@ -600,7 +600,7 @@ export class UsersService {
         try {
             await this.connection.manager.transaction(async entityManager => {
                 const newTenant = this.tenantRepository.create(createTenantDto);
-                
+
                 //get the regionRootDomainName and set for newTenant. It is a denomalization
                 const region = await this.regionsService.findRegionByName(createTenantDto.regionName);
                 newTenant.regionRootDomainName = region.rootDomainName;
@@ -1287,7 +1287,7 @@ export class UsersService {
                             console.log(error);
                     });
                     */
-                   mailSender(mailOptions);
+                    mailSender(mailOptions);
 
                 })
                 //console.log('message successfully sent')
@@ -1476,7 +1476,7 @@ export class UsersService {
                             console.log(error)
                     });
                     */
-                   mailSender(mailOptions)
+                    mailSender(mailOptions)
                 });
                 return {
                     notificationClass: "is-info",
@@ -1621,5 +1621,20 @@ export class UsersService {
     async suggestUsers(text: string) {
         const results = await this.usersSearchService.suggest(text);
         return results;
+    }
+
+    /**
+     * Create a querybuilder for selecting only the indexed fields so as to avoid over fetching during updateUser
+     * 
+     */
+    async getUserForIndexing(userId: number) {
+
+        const user = await this.userRepository.createQueryBuilder("user")
+            .select(["user.id", "user.firstName","user.lastName", "user.homeAddress","user.landlord"])
+            .where("user.id = :userId", { userId })
+            .getOne();
+
+            //console.log(JSON.stringify(user));
+        return user;
     }
 }
