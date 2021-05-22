@@ -23,7 +23,7 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, mailSender, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, TenantTeamRole, USE_API_VERSION_IN_URL } from 'src/global/app.settings';
+import { API_VERSION, APP_NAME, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, mailSender, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, TenantTeamRole, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 import { GenericBulmaNotificationResponseDto } from '../global/generic.dto';
 import { FacebookProfileDto } from '../auth/dtos/facebook-profile.dto';
@@ -1343,13 +1343,13 @@ export class UsersService {
                         const globalPrefixUrl = USE_API_VERSION_IN_URL ? `/${API_VERSION}` : '';
                         const returnUrl = `${globalPrefixUrl}/users/reset-password/${token}`;
                         //await reply.send(, {sendForm: true, token: token});//send form with token for submit url
-                        reply.view('users/reset-password.html', { title: 'SGVI-1 Mini CMS - Reset Password', sendForm: true, returnUrl: returnUrl })
+                        reply.view('users/reset-password.html', { title: `${APP_NAME} - Reset Password`, sendForm: true, returnUrl: returnUrl })
                     }
                 } else {//expired token
-                    reply.view('users/reset-password.html', { title: 'SGVI-1 Mini CMS - Reset Password', success: false, error: { message: 'Invalid token', detail: "The token sent has expired" } });
+                    reply.view('users/reset-password.html', { title: `${APP_NAME} - Reset Password`, success: false, error: { message: 'Invalid token', detail: "The token sent has expired" } });
                 }
             } else {//user with the sent token not found
-                reply.view('users/reset-password.html', { title: 'SGVI-1 Mini CMS - Reset Password', success: false, error: { message: "Invalid token", detail: "No valid token was sent" } });
+                reply.view('users/reset-password.html', { title: `${APP_NAME} - Reset Password`, success: false, error: { message: "Invalid token", detail: "No valid token was sent" } });
             }
         } catch (error) {
             throw new HttpException({
@@ -1378,7 +1378,7 @@ export class UsersService {
 
                         reply.view('users/reset-password.html',
                             {
-                                title: 'SGVI-1 Mini CMS - Reset Password',
+                                title: `${APP_NAME} - Reset Password`,
                                 sendForm: false,
                                 notificationVisibility: "",
                                 notificationClass: "is-success",
@@ -1391,7 +1391,7 @@ export class UsersService {
                         //await reply.send(, {sendForm: true, token: token});//send form with token for submit url
                         reply.view('users/reset-password.html',
                             {
-                                title: 'SGVI-1 Mini CMS - Reset Password',
+                                title: `${APP_NAME} - Reset Password`,
                                 sendForm: true,
                                 returnUrl: returnUrl,
                                 notificationVisibility: "is-hidden"
@@ -1400,7 +1400,7 @@ export class UsersService {
                 } else {//expired token
                     reply.view('users/reset-password.html',
                         {
-                            title: 'SGVI-1 Mini CMS - Reset Password',
+                            title: `${APP_NAME} - Reset Password`,
                             sendForm: false,
                             notificationVisibility: "",
                             notificationClass: "is-danger",
@@ -1410,7 +1410,7 @@ export class UsersService {
             } else {//user with the sent token not found
                 reply.view('users/reset-password.html',
                     {
-                        title: 'SGVI-1 Mini CMS - Reset Password',
+                        title: `${APP_NAME} - Reset Password`,
                         sendForm: false,
                         notificationVisibility: "",
                         notificationClass: "is-danger",
@@ -1515,16 +1515,16 @@ export class UsersService {
 
                     await this.userRepository.save(user);
 
-                    reply.view('users/confirm-email-feedback.html', { title: 'SGVI-1 Mini CMS - Confirm Email', notificationClass: "is-success", notificationMessage: "Email confirmed!" });
+                    reply.view('users/confirm-email-feedback.html', { title: `${APP_NAME} - Confirm Email`, notificationClass: "is-success", notificationMessage: "Email confirmed!" });
                 } else {//expired token
-                    reply.view('users/confirm-email-feedback.html', { title: 'SGVI-1 Mini CMS - Confirm Email', notificationClass: "is-danger", notificationMessage: "Problem confirming email. Token has expired!" });
+                    reply.view('users/confirm-email-feedback.html', { title: `${APP_NAME} - Confirm Email`, notificationClass: "is-danger", notificationMessage: "Problem confirming email. Token has expired!" });
                 }
             } else {//user with the sent token not found
-                reply.view('users/confirm-email-feedback.html', { title: 'SGVI-1 Mini CMS - Confirm Email', notificationClass: "is-danger", notificationMessage: "Problem confirming email" });
+                reply.view('users/confirm-email-feedback.html', { title: `${APP_NAME} - Confirm Email`, notificationClass: "is-danger", notificationMessage: "Problem confirming email" });
             }
 
         } catch (error) {
-            reply.view('users/confirm-email-feedback.html', { title: 'SGVI-1 Mini CMS - Confirm Email', notificationClass: "is-danger", notificationMessage: "Problem confirming email!" });
+            reply.view('users/confirm-email-feedback.html', { title: `${APP_NAME} - Confirm Email`, notificationClass: "is-danger", notificationMessage: "Problem confirming email!" });
         }
     }
 
