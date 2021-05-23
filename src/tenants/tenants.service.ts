@@ -373,33 +373,40 @@ export class TenantsService {
         //region is needed for default values
         const region = await this.regionsService.findRegionByName(regionName);
         const [tenants] = await this.findActiveTenantsByRegionName(regionName); //this assumes that tenants are not too many in a region. This for example could be 100 tenants, equivalent of 100 schemas per database
+        //console.log(JSON.stringify(tenants));
         tenants.map((tenant) => {
-            const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
-            const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
-            //const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
-            const smtpAuth = tenant.tenantConfigDetail.smtpAuth == null ? region.smtpAuth : tenant.tenantConfigDetail.smtpAuth;
-            const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
-            const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
-            const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
-            const fbOauth2Constants = tenant.tenantConfigDetail.fbOauth2Constants == null ? region.fbOauth2Constants : tenant.tenantConfigDetail.fbOauth2Constants;
-            const googleOidcConstants = tenant.tenantConfigDetail.googleOidcConstants == null ? region.googleOidcConstants : tenant.tenantConfigDetail.googleOidcConstants;
-            const sizeLimits = tenant.tenantConfigDetail.sizeLimits == null ? region.sizeLimits : tenant.tenantConfigDetail.sizeLimits;
-            const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
-            const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
-            const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
-            const logo = tenant.tenantConfigDetail.logo;
+            //console.log(JSON.stringify(tenant.tenantConfigDetail))
+            if (tenant.tenantConfigDetail) {//it should not be null
+                const dbProperties = tenant.tenantConfigDetail.dbProperties == null ? region.dbProperties : tenant.tenantConfigDetail.dbProperties;
+                const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
+                //const mailerOptions = tenant.tenantConfigDetail.mailerOptions == null ? region.mailerOptions : tenant.tenantConfigDetail.mailerOptions;
+                const smtpAuth = tenant.tenantConfigDetail.smtpAuth == null ? region.smtpAuth : tenant.tenantConfigDetail.smtpAuth;
+                const otherUserOptions = tenant.tenantConfigDetail.otherUserOptions == null ? region.otherUserOptions : tenant.tenantConfigDetail.otherUserOptions;
+                const jwtConstants = tenant.tenantConfigDetail.jwtConstants == null ? region.jwtConstants : tenant.tenantConfigDetail.jwtConstants;
+                const authEnabled = tenant.tenantConfigDetail.authEnabled == null ? region.authEnabled : tenant.tenantConfigDetail.authEnabled;
+                const fbOauth2Constants = tenant.tenantConfigDetail.fbOauth2Constants == null ? region.fbOauth2Constants : tenant.tenantConfigDetail.fbOauth2Constants;
+                const googleOidcConstants = tenant.tenantConfigDetail.googleOidcConstants == null ? region.googleOidcConstants : tenant.tenantConfigDetail.googleOidcConstants;
+                const sizeLimits = tenant.tenantConfigDetail.sizeLimits == null ? region.sizeLimits : tenant.tenantConfigDetail.sizeLimits;
+                const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
+                const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
+                const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
+                const logo = tenant.tenantConfigDetail.logo;
 
-            const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
-            const customURLSlug: string = tenant.customURLSlug;
-            const uniqueName: string = `${tenant.subDomainName}.${tenant.regionRootDomainName}`;
+                const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+                const customURLSlug: string = tenant.customURLSlug;
+                const uniqueName: string = `${tenant.subDomainName}.${tenant.regionRootDomainName}`;
 
-            const tenantConfigDetailRedisProperties = tenant.tenantConfigDetail.redisProperties; //this is just for test in setTenantProperties... below
+                const tenantConfigDetailRedisProperties = tenant.tenantConfigDetail.redisProperties; //this is just for test in setTenantProperties... below
 
-            properties.push({
-                dbProperties, redisProperties, smtpAuth, otherUserOptions, jwtConstants,
-                authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
-                theme, rootFileSystem, logo, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
-            });
+                properties.push({
+                    dbProperties, redisProperties, smtpAuth, otherUserOptions, jwtConstants,
+                    authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
+                    theme, rootFileSystem, logo, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
+                });
+
+
+                //console.log(smtpAuth);
+            }
 
         });
         return properties;
@@ -436,6 +443,12 @@ export class TenantsService {
             const redisSettings = new Map<string, Redis.ValueType>()
             redisSettings.set(`${tenantUniquePrefix}POSTGRES_HOST`, dbProperties.host);
             const runRedisSet = redisClientReturned.mset(redisSettings);
+            */
+
+            /*
+            console.log(JSON.stringify(prop.redisProperties));
+            console.log(prop.tenantUniquePrefix);
+            console.log(prop.uniqueName);
             */
 
             //Alternative way to call mset without first creating a Map
