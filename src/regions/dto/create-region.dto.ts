@@ -13,14 +13,14 @@ export class CreateRegionDto {
         host: string, //
         port?: number,
         login?: string,
-        password?: string //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
+        password?: {iv?: string, content?: string} //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
     };
     readonly dbProperties: {
         type: string,
         host: string,
         port: number,
         username: string,
-        password: string,//should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
+        password: {iv?: string, content?: string},//should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
         database: string,
         /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -40,13 +40,13 @@ export class CreateRegionDto {
     readonly elasticSearchProperties: {
         node: string,
         username: string,
-        password: string,
+        password: {iv?: string, content: string},
         ca?: string //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
     };
     readonly redisProperties: {
         host: string,
         port: number,
-        password: string, //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
+        password: {iv?: string, content: string}, //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
         db: number | null,
         //sentinels?: { host: string, port: number }[],
         sentinels?: string, //supposed to be { host: string, port: number }[]
@@ -56,8 +56,8 @@ export class CreateRegionDto {
     readonly rootFileSystem: {
         path: string,
         username?: string, //just in case, there is some form of basic authentication. //should be encrypted. See https://attacomsian.com/blog/nodejs-encrypt-decrypt-data
-        password?: string,
-        ca: string | null //if certificate or key is needed
+        password?: {iv?: string, content: string},
+        ca?: string //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
     /*
     readonly mailerOptions?: {
@@ -79,7 +79,7 @@ export class CreateRegionDto {
     }*/
     readonly smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
         smtpUser: string,
-        smtpPword: string,
+        smtpPword: {iv?: string, content?: string},
         smtpHost: string,//smtpService below overrides smtpServer
         smtpPort: number,
         smtpService: string,

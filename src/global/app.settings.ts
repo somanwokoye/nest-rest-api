@@ -115,7 +115,7 @@ const createTransporter = async (oauth2: boolean) => {
             const transporter = nodemailer.createTransport({
                 host: parsedEnv.SMTP_HOST,
                 port: parseInt(parsedEnv.SMTP_PORT),
-                secure: parsedEnv.SMTP_SECURE === 'true'? true : false,
+                secure: parsedEnv.SMTP_SECURE === 'true' ? true : false,
                 //service: "gmail",
                 auth: {
                     type: "OAuth2",
@@ -126,7 +126,7 @@ const createTransporter = async (oauth2: boolean) => {
                     refreshToken: parsedEnv.SMTP_REFRESH_TOKEN,
                 },
                 //pool options (see https://nodemailer.com/smtp/pooled/)
-                pool: parsedEnv.SMTP_POOL === 'true'? true : false,
+                pool: parsedEnv.SMTP_POOL === 'true' ? true : false,
                 maxConnections: parseInt(parsedEnv.SMTP_MAXIMUM_CONNECTIONS),
                 maxMessages: parseInt(parsedEnv.SMTP_MAXIMUM_MESSAGES),
                 //others
@@ -144,7 +144,7 @@ const createTransporter = async (oauth2: boolean) => {
             //service: 'gmail',
             host: parsedEnv.SMTP_HOST,
             port: parseInt(parsedEnv.SMTP_PORT),
-            secure: parsedEnv.SMTP_SECURE === 'true'? true : false,
+            secure: parsedEnv.SMTP_SECURE === 'true' ? true : false,
             auth: {
                 user: parsedEnv.SMTP_USER,
                 pass: parsedEnv.SMTP_PWORD
@@ -158,9 +158,13 @@ const createTransporter = async (oauth2: boolean) => {
 };
 
 export const mailSender = async (emailOptions: SendMailOptions) => {
-    const emailTransporter = await createTransporter(parsedEnv.SMTP_OAUTH === 'true'? true : false);
-    if(emailTransporter)
-        await emailTransporter.sendMail(emailOptions);
+    try {
+        const emailTransporter = await createTransporter(parsedEnv.SMTP_OAUTH === 'true' ? true : false);
+        if (emailTransporter)
+            await emailTransporter.sendMail(emailOptions);
+    } catch (error) {
+        console.log(`Could not send mail: ${error}`);
+    }
 }
 
 
@@ -170,8 +174,8 @@ export const resetPasswordMailOptionSettings = {
     {url}
     If you did not request this, please ignore this email and your password will remain unchanged.\n\n`,
     //replyAddress: "noreply@pau.edu.ng",
-    subject: "Reset Password - piosystems.com",
-    from: "noreply@piosystems.com"
+    subject: "Reset Password - peakharmony.com",
+    from: "noreply@peakharmony.com"
 
 }
 
@@ -179,19 +183,20 @@ export const confirmEmailMailOptionSettings = {
     textTemplate: `You are receiving this because the email address associated with your account requires confirmation.\n
     Please click on the following link, or paste this into your browser to complete the process:\n\n
     {url}`,
-    subject: "Confirm Email - piosystems.com",
-    from: "noreply@piosystems.com"
+    subject: "Confirm Email - peakharmony.com",
+    from: "noreply@peakharmony.com"
 
 }
 
 export const tenantSuccessfullyCreatedMessage = {
     textTemplate: `Dear {name},\n\n
     Thank you for choosing our service. Your Loyalty Management and eCommerce Platform is set:\n
-    Go to {url} and login for your business setup\n\n
+    For your business setup, go to {url} and login with your email address, {username} as your username. Your temporary password is {password}. \n
+    It is advisable to change your password as soon as possible.\n\n
     Yours truly,\n
     Ugum Administrator`,
     subject: "Your Loyalty Management and eCommerce Platform is ready for use",
-    from: "noreply@ugum.com"
+    from: "noreply@peakharmony.com"
 
 }
 
@@ -266,3 +271,5 @@ export const googleConstants = {
     GOOGLE_OAUTH2_SCOPE: 'openid profile email https://www.googleapis.com/auth/user.gender.read https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/profile.agerange.read',//see https://developers.google.com/people/api/rest/v1/people/get under Authorization Scopes section
     CREATE_USER_IF_NOT_EXISTS: true
 }
+
+export const UPLOAD_DIRECTORY = parsedEnv.UPLOAD_DIRECTORY;

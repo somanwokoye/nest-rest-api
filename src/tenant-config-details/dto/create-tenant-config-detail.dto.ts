@@ -8,14 +8,14 @@ export class CreateTenantConfigDetailDto {
         host: string,
         port?: number,
         login?: string,
-        password?: string
+        password?: {iv?: string, content?: string}
     };
     dbProperties?: {
         type: string,
         host: string,
         port: number,
         username: string,
-        password: string,
+        password: {iv?: string, content?: string},
         database: string,
         /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -37,13 +37,13 @@ export class CreateTenantConfigDetailDto {
     readonly elasticSearchProperties?: {
         node: string,
         username: string,
-        password: string,
+        password: {iv?: string, content?: string},
         ca?: string //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
     };
     readonly redisProperties?: {
         host: string,
         port: number,
-        password: string,
+        password: {iv?: string, content?: string},
         db?: number,
         //sentinels?: { host: string, port: number }[],
         sentinels?: string, //supposed to be { host: string, port: number }[]
@@ -53,7 +53,7 @@ export class CreateTenantConfigDetailDto {
     readonly rootFileSystem?: {
         path: string,
         username?: string, //just in case, there is some form of basic authentication 
-        password?: string,
+        password?: {iv?: string, content?: string},
         ca?: string //if certificate or key is needed
     };
     /*
@@ -77,7 +77,7 @@ export class CreateTenantConfigDetailDto {
     */
     readonly smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
         smtpUser: string,
-        smtpPword: string,
+        smtpPword: {iv?: string, content?: string},
         smtpHost: string,//smtpService below overrides smtpServer
         smtpPort: number,
         smtpService: string,

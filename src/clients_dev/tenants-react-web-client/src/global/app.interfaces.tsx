@@ -119,14 +119,14 @@ export interface ITenantConfigDetail extends IBaseAbstract{
         host: string,
         port?: number,
         login?: string,
-        password?: string
+        password?: {iv?: string, content?: string}
     };
     dbProperties?: {
         type: string,
         host: string,
         port: number,
         username: string,
-        password: string,
+        password: {iv?: string, content?: string},
         database: string,
         /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -147,24 +147,24 @@ export interface ITenantConfigDetail extends IBaseAbstract{
     elasticSearchProperties?: {
         node: string,
         username: string,
-        password: string,
-        ca: string | null //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
+        password: {iv?: string, content?: string},
+        ca?: string //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
     };
     redisProperties?: {
         host: string,
         port: number,
-        password: string,
+        password: {iv?: string, content?: string},
         db?: number,
         //sentinels?: { host: string, port: number }[],
         sentinels?: string, //supposed to be { host: string, port: number }[]
         family?: number, //4 or 6 for ipv4 or ipv6
-        ca: string | null //in case of certificate. May not be needed if you follow the advise in https://redis.io/topics/security
+        ca?: string //in case of certificate. May not be needed if you follow the advise in https://redis.io/topics/security
     };
     rootFileSystem?: {
         path: string, //could be a network path 
         username?: string, //just in case, there is some form of basic authentication 
-        password?: string,
-        ca: string | null //if certificate or key is needed
+        password?: {iv?: string, content?: string},
+        ca?: string //if certificate or key is needed
     };
     /*
     mailerOptions?: {
@@ -186,7 +186,7 @@ export interface ITenantConfigDetail extends IBaseAbstract{
     };*/
     smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
         smtpUser: string,
-        smtpPword: string,
+        smtpPword: {iv?: string, content?: string},
         smtpHost: string,//smtpService below overrides smtpServer
         smtpPort: number,
         smtpService: string,
@@ -268,16 +268,16 @@ export interface IRegion extends IBaseAbstract {
     webServerProperties?: {
         //domain: string, //E.g. r1.peakharmony.com. Set it up in nameserver. A tenant1 unique name for e.g. can then have a URL slug, tenant1.r1.peakharmony.com. Use default domain to handle all on the server. Only need to add an nginx server block conf file for custom domain
         host: string, //IP
-        port?: number | null,
-        login?: string | null,
-        password?: string | null
+        port?: number,
+        login?: string,
+        password?: {iv?: string, content?: string}
     };
     dbProperties: {
         type: string,
         host: string,
         port: number,
         username: string,
-        password: string,
+        password: {iv?: string, content?: string}
         database: string,
         /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -297,23 +297,23 @@ export interface IRegion extends IBaseAbstract {
     elasticSearchProperties: {
         node: string,
         username: string,
-        password: string,
+        password: {iv?: string, content: string},
         ca: string | null //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
     };
     redisProperties: {
         host: string,
         port: number,
-        password: string,
-        db: number | null,
+        password: {iv?: string, content: string},
+        db?: number,
         //sentinels?: { host: string, port: number }[],
         family: number, //4 or 6 for ipv4 or ipv6
-        ca: string | null //in case of certificate. May not be needed if you follow the advise in https://redis.io/topics/security
+        ca?: string //in case of certificate. May not be needed if you follow the advise in https://redis.io/topics/security
     }; //for redis connection.
     rootFileSystem: {
         path: string,
-        username: string | null, //just in case, there is some form of basic authentication 
-        password: string | null,
-        ca: string | null //if certificate or key is needed
+        username?: string, //just in case, there is some form of basic authentication 
+        password?: {iv?: string, content: string},
+        ca?: string //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
     /*
     mailerOptions?: {
@@ -335,7 +335,7 @@ export interface IRegion extends IBaseAbstract {
     }*/
     smtpAuth?: { //optional for the likes of Google OAuth2. See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
         smtpUser: string,
-        smtpPword: string,
+        smtpPword: {iv?: string, content?: string},
         smtpHost: string,//smtpService below overrides smtpServer
         smtpPort: number,
         smtpService: string,
@@ -404,13 +404,13 @@ export interface IRegion extends IBaseAbstract {
 export interface ITenant extends IBaseAbstract {
     uuid?: string;
     name?: string;
-    subDomainName?: string | null; 
+    subDomainName?: string; 
     address?: string;
     moreInfo?: string;
     logo?: string;
     logoMimeType?: string;
     status?: TenantStatus;
-    customURLSlug?: string | null
+    customURLSlug?: string
     dateOfRegistration?: Date
     active?: boolean;
     customTheme?: ICustomTheme;
@@ -432,7 +432,7 @@ export interface ITenant extends IBaseAbstract {
 export interface IState {
     tenants?: ITenant[];
     tenantsCount?: number; //for total number that corresponds to present find, in case of pagination
-    tenant?: ITenant | null; //This can be use for tenant to edit or tenant to view, depending on the function being carried out
+    tenant?: ITenant; //This can be use for tenant to edit or tenant to view, depending on the function being carried out
     onAddTenant: boolean;
     onViewTenant: boolean;
     onEditTenant: boolean;

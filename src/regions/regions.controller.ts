@@ -15,17 +15,25 @@ export class RegionsController {
   /**
     * 
     * @param createRegionDto 
-    * Handle Post request for create
+    * Handle Post request for region create.
+    * A region should only be created (i.e. registered) when the environment has been setup, namely database, redis, elasticsearch, rootfilesystem
     */
   @Post()
   create(@Body() createRegionDto: CreateRegionDto): Promise<Region> {
     return this.regionsService.create(createRegionDto);
   }
 
+  /**
+   * For multiple inserts. Not in use yet because, I am yet to implement password encryptions
+   * @param createRegionDtos 
+   * @returns 
+   */
+  /*
   @Post('insert')
   insert(@Body() createRegionDtos: CreateRegionDto[]): Promise<InsertResult> {
     return this.regionsService.insertRegions(createRegionDtos);
   }
+  */
 
   /**
    * 

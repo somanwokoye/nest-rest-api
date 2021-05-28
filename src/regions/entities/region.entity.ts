@@ -3,6 +3,7 @@ import { Column, Entity, Index, OneToMany } from "typeorm";
 import * as crypto from 'crypto';
 import { TenantConfigDetail } from "../../tenant-config-details/entities/tenant-config-detail.entity";
 import { parsedEnv } from "../../global/app.settings";
+import { CryptoTools } from "../../global/app.tools";
 
 @Entity()
 export class Region extends BaseAbstractEntity {
@@ -33,7 +34,7 @@ export class Region extends BaseAbstractEntity {
             host: parsedEnv.DEFAULT_REGION_WEBSERVER_HOST, //IP
             port: parseInt(parsedEnv.DEFAULT_REGION_WEBSERVER_PORT),
             login: parsedEnv.DEFAULT_REGION_WEBSERVER_LOGIN,
-            password: parsedEnv.DEFAULT_REGION_WEBSERVER_PASSWORD
+            password: parsedEnv.DEFAULT_REGION_WEBSERVER_PASSWORD ? CryptoTools.encryptSync(parsedEnv.DEFAULT_REGION_WEBSERVER_PASSWORD) : null,
         }
     })//mainly for administrative access to webserver machine e.g. for setting up server blocks for custom urls
     webServerProperties: {
@@ -41,7 +42,7 @@ export class Region extends BaseAbstractEntity {
         host: string | null, //IP
         port: number | null,
         login: string | null,
-        password: string | null
+        password: { iv: string | null, content: string | null } | null;
     };
 
     @Column("simple-json")
@@ -50,7 +51,7 @@ export class Region extends BaseAbstractEntity {
         host: string,
         port: number,
         username: string,
-        password: string,
+        password: { iv: string | null, content: string | null },
         database: string,
         /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -72,7 +73,7 @@ export class Region extends BaseAbstractEntity {
     elasticSearchProperties: {
         node: string,
         username: string,
-        password: string,
+        password: { iv: string | null, content: string | null },
         ca: string | null //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
     };
 
@@ -80,7 +81,7 @@ export class Region extends BaseAbstractEntity {
     redisProperties: {
         host: string,
         port: number,
-        password: string,
+        password: { iv: string | null, content: string | null },
         db: number | null,
         //sentinels: { host: string, port: number }[] | null, //swagger has problem with this. Need to put in separate column or capture plain json string with string field
         sentinels: string | null, //supposed to be { host: string, port: number }[]
@@ -88,11 +89,21 @@ export class Region extends BaseAbstractEntity {
         ca: string | null //in case of certificate. May not be needed if you follow the advise in https://redis.io/topics/security
     }; //for redis connection.
 
-    @Column("simple-json")
+    /**
+     * This rootFileSystem path must be visible to this tms machine and visible to the tenants SaaS environment for that region. So, it should be a network file server unless both tms and saas are on the same machine. When a new tenant is created, the subdirectories will also have to be created by tms in the region.
+     */
+    @Column("simple-json", {
+        default: {
+            path: parsedEnv.DEFAULT_ROOT_FILESYSTEM_PATH,
+            username: null, //just in case, there is some form of basic authentication 
+            password: {},
+            ca: null //if certificate or key is needed
+        }
+    })
     rootFileSystem: {
         path: string,
         username: string | null, //just in case, there is some form of basic authentication 
-        password: string | null,
+        password: { iv: string | null, content: string | null },
         ca: string | null //if certificate or key is needed
     }; //the root file system for uploads for the region. Each tenant in the region should have a suffix based on tenant's uuid
 
@@ -129,56 +140,57 @@ export class Region extends BaseAbstractEntity {
     }
     */
 
-    @Column("simple-json", {nullable: true, //nullable is just here to accommodate old records at dev time
+    @Column("simple-json", {
+        nullable: true, //nullable is just here to accommodate old records at dev time
         default: {
             smtpUser: parsedEnv.DEFAULT_SMTP_USER,
-            smtpPword: parsedEnv.DEFAULT_SMTP_PWORD,
+            smtpPword: parsedEnv.DEFAULT_SMTP_PWORD ? CryptoTools.encryptSync(parsedEnv.DEFAULT_SMTP_PWORD) : null,
             smtpHost: parsedEnv.DEFAULT_SMTP_HOST,//smtpService below overrides smtpServer
             smtpPort: parseInt(parsedEnv.DEFAULT_SMTP_PORT),
             smtpService: parsedEnv.DEFAULT_SMTP_SERVICE,
-            smtpSecure: parsedEnv.DEFAULT_SMTP_SECURE === 'true'? true: false,
-            smtpOauth: parsedEnv.DEFAULT_SMTP_OAUTH === 'true'? true: false,
+            smtpSecure: parsedEnv.DEFAULT_SMTP_SECURE === 'true' ? true : false,
+            smtpOauth: parsedEnv.DEFAULT_SMTP_OAUTH === 'true' ? true : false,
             smtpClientId: parsedEnv.DEFAULT_SMTP_CLIENT_ID,
             smtpClientSecret: parsedEnv.DEFAULT_SMTP_CLIENT_SECRET,
             smtpAccessToken: parsedEnv.DEFAULT_SMTP_ACCESS_TOKEN,
             smtpRefreshToken: parsedEnv.DEFAULT_SMTP_REFRESH_TOKEN,
             smtpAccessUrl: parsedEnv.DEFAULT_SMTP_ACCESS_URL,
-            smtpPool: parsedEnv.DEFAULT_SMTP_POOL === 'true'? true: false,
+            smtpPool: parsedEnv.DEFAULT_SMTP_POOL === 'true' ? true : false,
             smtpMaximumConnections: parseInt(parsedEnv.DEFAULT_SMTP_MAXIMUM_CONNECTIONS),
             smtpMaximumMessages: parseInt(parsedEnv.DEFAULT_SMTP_MAXIMUM_MESSAGES)
         }
     }) //default is yet to be setup. Hence, no default
     smtpAuth: { //See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
         smtpUser: string,
-            smtpPword: string,
-            smtpHost: string,//smtpService below overrides smtpServer
-            smtpPort: number,
-            smtpService: string,
-            smtpSecure: boolean,
-            smtpOauth: boolean,
-            smtpClientId: string,
-            smtpClientSecret: string,
-            smtpAccessToken: string,
-            smtpRefreshToken: string,
-            smtpAccessUrl: string,
-            smtpPool: boolean,
-            smtpMaximumConnections: number,
-            smtpMaximumMessages: number
+        smtpPword: { iv: string | null, content: string | null },
+        smtpHost: string,//smtpService below overrides smtpServer
+        smtpPort: number,
+        smtpService: string,
+        smtpSecure: boolean,
+        smtpOauth: boolean,
+        smtpClientId: string,
+        smtpClientSecret: string,
+        smtpAccessToken: string,
+        smtpRefreshToken: string,
+        smtpAccessUrl: string,
+        smtpPool: boolean,
+        smtpMaximumConnections: number,
+        smtpMaximumMessages: number
     }
 
     @Column("simple-json", { //just in case not provided, at least put some default
-            default: {
-                jwtSecretKeyExpiration: parsedEnv.DEFAULT_JWT_SECRET_KEY_EXPIRATION,
-                jwtRefreshSecretKeyExpiration: parsedEnv.DEFAULT_JWT_REFRESH_SECRET_KEY_EXPIRATION,
-                //assuming the use of own keys/certificate. Can be accommodated if using jsonwebtoken directly (see https://www.npmjs.com/package/jsonwebtoken)
-                jwtSecretKey: crypto.randomBytes(16).toString('hex'),
-                jwtRefreshSecret: crypto.randomBytes(16).toString('hex'),
-                jwtSecretPrivateKey: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY,
-                jwtSecretPrivateKeyPassphrase: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY_PASSPHRASE,
-                jwtSecretPublicKey: parsedEnv.DEFAULT_JWT_SECRET_PUBLIC_KEY,
-                jwtSignAlgorithm: parsedEnv.DEFAULT_JWT_SIGN_ALGORITHM,
-            }
-        })
+        default: {
+            jwtSecretKeyExpiration: parsedEnv.DEFAULT_JWT_SECRET_KEY_EXPIRATION,
+            jwtRefreshSecretKeyExpiration: parsedEnv.DEFAULT_JWT_REFRESH_SECRET_KEY_EXPIRATION,
+            //assuming the use of own keys/certificate. Can be accommodated if using jsonwebtoken directly (see https://www.npmjs.com/package/jsonwebtoken)
+            jwtSecretKey: crypto.randomBytes(16).toString('hex'),
+            jwtRefreshSecret: crypto.randomBytes(16).toString('hex'),
+            jwtSecretPrivateKey: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY,
+            jwtSecretPrivateKeyPassphrase: parsedEnv.DEFAULT_JWT_SECRET_PRIVATE_KEY_PASSPHRASE,
+            jwtSecretPublicKey: parsedEnv.DEFAULT_JWT_SECRET_PUBLIC_KEY,
+            jwtSignAlgorithm: parsedEnv.DEFAULT_JWT_SIGN_ALGORITHM,
+        }
+    })
     jwtConstants: {
         jwtSecretKeyExpiration: number, //e.g. 300
         jwtRefreshSecretKeyExpiration: string, //e.g. '7d'

@@ -1,7 +1,7 @@
 import { BaseAbstractEntity } from "../../global/base-abstract.entity";
 import { Tenant } from "../../tenants/models/tenant.entity";
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from "typeorm";
-import { Region } from "src/regions/entities/region.entity";
+import { Region } from "../../regions/entities/region.entity";
 
 @Entity()
 export class TenantConfigDetail extends BaseAbstractEntity {
@@ -12,7 +12,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
     host: string,
     port: number | null,
     login: string | null,
-    password: string | null
+    password: {iv: string | null, content: string | null} | null
   };
 
   @Column("simple-json", { nullable: true }) //use default region's values if null
@@ -21,7 +21,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
     host: string,
     port: number,
     username: string,
-    password: string,
+    password: {iv: string | null, content: string | null},
     database: string,
     /* Below is example for self-signed certificate. See https://node-postgres.com/features/ssl
          * ssl: {
@@ -47,7 +47,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
   elasticSearchProperties: {
     node: string,
     username: string,
-    password: string,
+    password: {iv: string | null, content: string | null},
     ca: string | null //public key for elasticsearch if using 9300 secure port. See https://www.elastic.co/guide/en/elasticsearch/reference/current/security-basic-setup-https.html for secure setup
   }; //for elastic search connection. This may not be different for each client. If not set, use the general one
 
@@ -55,7 +55,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
   redisProperties: {
     host: string,
     port: number,
-    password: string,
+    password: {iv: string | null, content: string | null},
     db: number | null,
     //sentinels: { host: string, port: number }[] | null,
     sentinels: string | null, //supposed to be { host: string, port: number }[]
@@ -67,7 +67,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
   rootFileSystem: {
     path: string,
     username: string | null, //just in case, there is some form of basic authentication 
-    password: string | null,
+    password: {iv: string | null, content: string | null},
     ca: string | null //if certificate or key is needed
   }; //root of filesystem for uploads for the tenant. Each tenant in the region should have a suffix based on tenant's uuid
   /*
@@ -95,7 +95,7 @@ export class TenantConfigDetail extends BaseAbstractEntity {
   @Column("simple-json", { nullable: true }) //use region's as default if not setup
   smtpAuth: { //See https://www.woolha.com/tutorials/node-js-send-email-using-gmail-with-nodemailer-oauth-2; https://nodemailer.com/smtp/oauth2/
     smtpUser: string,
-    smtpPword: string,
+    smtpPword: {iv: string | null, content: string | null},
     smtpHost: string,//smtpService below overrides smtpServer
     smtpPort: number,
     smtpService: string,

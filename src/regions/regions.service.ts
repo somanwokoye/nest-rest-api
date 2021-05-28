@@ -6,6 +6,7 @@ import { Region } from './entities/region.entity';
 import { InjectConnection, InjectRepository } from '@nestjs/typeorm';
 import { PG_UNIQUE_CONSTRAINT_VIOLATION } from 'src/global/error.codes';
 import { TenantConfigDetail } from 'src/tenant-config-details/entities/tenant-config-detail.entity';
+import { CryptoTools } from 'src/global/app.tools';
 
 
 @Injectable()
@@ -17,12 +18,36 @@ export class RegionsService {
     private connection: Connection
   ) { }
 
+  /**
+   * A region should only be registered when the environment has been setup, namely database, redis, elasticsearch, rootfilesystem
+   * @param createRegionDto 
+   * @returns 
+   */
   async create(createRegionDto: CreateRegionDto): Promise<Region> {
     try {
       const newRegion = this.regionRepository.create(createRegionDto);
+      //TODO:encrypt passwords before save
+      if (newRegion.webServerProperties && newRegion.webServerProperties.password && newRegion.webServerProperties.password.content)
+        newRegion.webServerProperties.password = await CryptoTools.encrypt(newRegion.webServerProperties.password.content);
+
+      if (newRegion.dbProperties && newRegion.dbProperties.password.content)
+        newRegion.dbProperties.password = await CryptoTools.encrypt(newRegion.dbProperties.password.content);
+
+      if (newRegion.elasticSearchProperties && newRegion.elasticSearchProperties.password.content)
+        newRegion.elasticSearchProperties.password = await CryptoTools.encrypt(newRegion.elasticSearchProperties.password.content);
+
+      if (newRegion.redisProperties && newRegion.redisProperties.password.content)
+        newRegion.redisProperties.password = await CryptoTools.encrypt(newRegion.redisProperties.password.content);
+
+      if (newRegion.rootFileSystem && newRegion.rootFileSystem.password && newRegion.rootFileSystem.password.content)
+        newRegion.rootFileSystem.password = await CryptoTools.encrypt(newRegion.rootFileSystem.password.content)
+
+      if (newRegion.smtpAuth && newRegion.smtpAuth.smtpPword && newRegion.smtpAuth.smtpPword.content)
+        newRegion.smtpAuth.smtpPword = await CryptoTools.encrypt(newRegion.smtpAuth.smtpPword.content);
+
       const region = await this.regionRepository.save(newRegion);
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
       return region;
     } catch (error) {
       if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -39,7 +64,13 @@ export class RegionsService {
     }
   }
 
-  //insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
+  /**
+   * insert using query builder - more efficient than save. Can be used for single or bulk save. See https://github.com/typeorm/typeorm/blob/master/docs/insert-query-builder.md
+   * Do not use as no encryption has been implemented
+   * @param regions 
+   * @returns 
+   */
+
   async insertRegions(regions: CreateRegionDto[]): Promise<InsertResult> {//Regions is an array of objects
     try {
       const insertResult = await this.regionRepository.createQueryBuilder()
@@ -49,7 +80,7 @@ export class RegionsService {
         .execute();
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"]);
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"]);
       return insertResult;
 
     } catch (error) {
@@ -70,10 +101,30 @@ export class RegionsService {
   async update(id: number, region: UpdateRegionDto): Promise<UpdateResult> {
     try {
 
-      const updateResult = await this.regionRepository.update(id, { ...region })
+      const region_: Region = region as Region;
+
+      if (region_.webServerProperties && region_.webServerProperties.password && region_.webServerProperties.password.content)
+        region_.webServerProperties.password = await CryptoTools.encrypt(region_.webServerProperties.password.content);
+
+      if (region_.dbProperties && region_.dbProperties.password.content)
+        region_.dbProperties.password = await CryptoTools.encrypt(region_.dbProperties.password.content);
+
+      if (region_.elasticSearchProperties && region_.elasticSearchProperties.password.content)
+        region_.elasticSearchProperties.password = await CryptoTools.encrypt(region_.elasticSearchProperties.password.content);
+
+      if (region_.redisProperties && region_.redisProperties.password.content)
+        region_.redisProperties.password = await CryptoTools.encrypt(region_.redisProperties.password.content);
+
+      if (region_.rootFileSystem && region_.rootFileSystem.password && region_.rootFileSystem.password.content)
+        region_.rootFileSystem.password = await CryptoTools.encrypt(region_.rootFileSystem.password.content)
+
+      if (region_.smtpAuth && region_.smtpAuth.smtpPword && region_.smtpAuth.smtpPword.content)
+        region_.smtpAuth.smtpPword = await CryptoTools.encrypt(region_.smtpAuth.smtpPword.content);
+
+      const updateResult = await this.regionRepository.update(id, { ...region_ })
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
 
       return updateResult;
     } catch (error) {
@@ -93,10 +144,29 @@ export class RegionsService {
 
   async save(region: Region): Promise<Region> {
     try {
+
+      if (region.webServerProperties && region.webServerProperties.password && region.webServerProperties.password.content)
+        region.webServerProperties.password = await CryptoTools.encrypt(region.webServerProperties.password.content);
+
+      if (region.dbProperties && region.dbProperties.password.content)
+        region.dbProperties.password = await CryptoTools.encrypt(region.dbProperties.password.content);
+
+      if (region.elasticSearchProperties && region.elasticSearchProperties.password.content)
+        region.elasticSearchProperties.password = await CryptoTools.encrypt(region.elasticSearchProperties.password.content);
+
+      if (region.redisProperties && region.redisProperties.password.content)
+        region.redisProperties.password = await CryptoTools.encrypt(region.redisProperties.password.content);
+
+      if (region.rootFileSystem && region.rootFileSystem.password && region.rootFileSystem.password.content)
+        region.rootFileSystem.password = await CryptoTools.encrypt(region.rootFileSystem.password.content)
+
+      if (region.smtpAuth && region.smtpAuth.smtpPword && region.smtpAuth.smtpPword.content)
+        region.smtpAuth.smtpPword = await CryptoTools.encrypt(region.smtpAuth.smtpPword.content);
+
       const updatedRegion = await this.regionRepository.save({ ...region });
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
       return updatedRegion;
     } catch (error) {
       if (error && error.code === PG_UNIQUE_CONSTRAINT_VIOLATION) {
@@ -115,6 +185,26 @@ export class RegionsService {
 
   async updateRegion(regionId: number, updateRegionDto: UpdateRegionDto): Promise<UpdateResult> {
     try {
+      const region_: Region = updateRegionDto as Region;
+
+      if (region_.webServerProperties && region_.webServerProperties.password && region_.webServerProperties.password.content)
+        region_.webServerProperties.password = await CryptoTools.encrypt(region_.webServerProperties.password.content);
+
+      if (region_.dbProperties && region_.dbProperties.password.content)
+        region_.dbProperties.password = await CryptoTools.encrypt(region_.dbProperties.password.content);
+
+      if (region_.elasticSearchProperties && region_.elasticSearchProperties.password.content)
+        region_.elasticSearchProperties.password = await CryptoTools.encrypt(region_.elasticSearchProperties.password.content);
+
+      if (region_.redisProperties && region_.redisProperties.password.content)
+        region_.redisProperties.password = await CryptoTools.encrypt(region_.redisProperties.password.content);
+
+      if (region_.rootFileSystem && region_.rootFileSystem.password && region_.rootFileSystem.password.content)
+        region_.rootFileSystem.password = await CryptoTools.encrypt(region_.rootFileSystem.password.content)
+
+      if (region_.smtpAuth && region_.smtpAuth.smtpPword && region_.smtpAuth.smtpPword.content)
+        region_.smtpAuth.smtpPword = await CryptoTools.encrypt(region_.smtpAuth.smtpPword.content);
+
       const updateResults = await this.regionRepository.createQueryBuilder()
         .update(Region)
         .set({ ...updateRegionDto })
@@ -122,7 +212,7 @@ export class RegionsService {
         .execute();
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
 
       return updateResults;
     } catch (error) {
@@ -148,7 +238,7 @@ export class RegionsService {
       await this.regionRepository.delete(id);
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
     } catch (error) {
       throw new HttpException({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -167,7 +257,7 @@ export class RegionsService {
         .execute();
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
       return deleteResult;
     } catch (error) {
       throw new HttpException({
@@ -187,7 +277,7 @@ export class RegionsService {
       const deletedRegion = await this.regionRepository.remove(region);
 
       //remove any cache named regions
-      await this.connection.queryResultCache.remove(["regions","tenant-assignable-regions-info"])
+      await this.connection.queryResultCache.remove(["regions", "tenant-assignable-regions-info"])
       return deletedRegion;
     } catch (error) {
       throw new HttpException({

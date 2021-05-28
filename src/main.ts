@@ -5,14 +5,14 @@ import { NestFactory } from '@nestjs/core';
  */
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { join } from 'path';
-import { readFileSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import * as path from "path";
 
 //Below is for file upload.
 import fmp from 'fastify-multipart'
 
 import { AppModule } from './app.module';
-import { API_VERSION, APP_DESCRIPTION, APP_NAME, USE_API_VERSION_IN_URL } from './global/app.settings';
+import { API_VERSION, APP_DESCRIPTION, APP_NAME, UPLOAD_DIRECTORY, USE_API_VERSION_IN_URL } from './global/app.settings';
 
 //For Swagger
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -29,6 +29,16 @@ import { jwtDefaultOptions } from './auth/auth.settings';
 
 async function bootstrap() {
 
+  /* Let's deal with some optimisation of our NodeJS environment */
+  //1. set the threadpool size to match the cpu virtual threads. //see https://hackernoon.com/how-libuv-thread-pool-can-boost-your-node-js-performance-bel3tyf
+  const OS = require('os');
+  process.env.UV_THREADPOOL_SIZE = (OS.cpus().length).toString();
+  //2. Improve performance of Promise by using bluebird. See https://www.tutorialdocs.com/article/nodejs-performance.html
+  //global.Promise = require('bluebird'); //See https://github.com/petkaantonov/bluebird; http://bluebirdjs.com/docs/api-reference.html
+  //3. Use fast-json-stringify in place of native JSON. See https://www.tutorialdocs.com/article/nodejs-performance.html
+
+  //process.env.DEBUG='ioredis:* node main.js'
+  
   //The factory below uses Express by default. Commented out to use Fastify instead
   //const app = await NestFactory.create(AppModule);
   //Use Fastify
@@ -131,6 +141,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
 
+  //ensure that the upload directories are available
+  //create upload directories if not exists
+  if (!existsSync(`${UPLOAD_DIRECTORY}/photos`))
+    mkdirSync(`${UPLOAD_DIRECTORY}/photos`, { recursive: true });
+  
+  if (!existsSync(`${UPLOAD_DIRECTORY}/logos`))
+    mkdirSync(`${UPLOAD_DIRECTORY}/logos`, { recursive: true });
 
   //await app.listen(3000);
   //For fastify, include 0.0.0.0 to listen on all IPs on the system. Otherwise, fastify will only listen on localhost.

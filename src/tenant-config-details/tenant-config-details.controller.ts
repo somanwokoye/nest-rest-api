@@ -80,27 +80,32 @@ export class TenantConfigDetailsController {
          return this.tenantConfigDetailsService.findOne(+id);
      }
 
-     // relationships
+     // relationships. These should be used sparingly and carefully from here.
+     //Better to operate instead from tenant
      /**
       * Set tenant for a given tenant config detail
       * @param tenantConfigDetailId 
       * @param tenantId 
       * @returns 
       */
+     /*
      @Patch(':tenantConfigDetailId/tenant/:tenantId')
      setTenantById(@Param('tenantConfigDetailId') tenantConfigDetailId: string, @Param('tenantId') tenantId: string): Promise<void> {
         return this.tenantConfigDetailsService.setTenantById(+tenantConfigDetailId, +tenantId);
      }
+     */
 
      /**
       * Unset tenant for a given tenant config detail
       * @param tenantConfigDetailId 
       * @returns 
       */
+     /*
      @Delete(':tenantConfigDetailId/tenant')
      unsetTenantById(@Param('tenantConfigDetailId') tenantConfigDetailId: string): Promise<void> {
         return this.tenantConfigDetailsService.unsetTenantById(+tenantConfigDetailId);
      }
+     */
 
      /**
       * set region for a given tenant config detail
@@ -108,19 +113,23 @@ export class TenantConfigDetailsController {
       * @param regionId 
       * @returns 
       */
+     /*
      @Patch(':tenantConfigDetailId/region/:regionId')
      setRegionById(@Param('tenantConfigDetailId') tenantConfigDetailId: string, @Param('regionId') regionId: string): Promise<void> {
         return this.tenantConfigDetailsService.setRegionById(+tenantConfigDetailId, +regionId);
      }
+     */
 
      /**
       * Unset region for a give tenant config detail
       * @param tenantConfigDetailId 
       * @returns 
       */
+     /*
      @Delete(':tenantConfigDetailId/region')
      unsetRegionById(@Param('tenantConfigDetailId') tenantConfigDetailId: string): Promise<void> {
         return this.tenantConfigDetailsService.unsetRegionById(+tenantConfigDetailId);
      }
+     */
 
  }

@@ -23,7 +23,7 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, APP_NAME, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, mailSender, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, TenantTeamRole, USE_API_VERSION_IN_URL } from '../global/app.settings';
+import { API_VERSION, APP_NAME, AUTO_SEND_CONFIRM_EMAIL, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, mailSender, PASSWORD_RESET_EXPIRATION, PHOTO_FILE_SIZE_LIMIT, PROTOCOL, resetPasswordMailOptionSettings, TenantTeamRole, UPLOAD_DIRECTORY, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 import { GenericBulmaNotificationResponseDto } from '../global/generic.dto';
 import { FacebookProfileDto } from '../auth/dtos/facebook-profile.dto';
@@ -1038,7 +1038,8 @@ export class UsersService {
             if (fileName == null) fileName = uuidv4(); //no previous photo, generate new fileName
             //time to write
             const pump = util.promisify(pipeline)
-            await pump(data.file, fs.createWriteStream(`uploads/photos/${fileName}`))//beware of filesystem permissions
+
+            await pump(data.file, fs.createWriteStream(`${UPLOAD_DIRECTORY}/photos/${fileName}`))//beware of filesystem permissions
 
             //save the fileName to photo and mimetype to user photoMimeType field
             const updateResult = await this.userRepository.createQueryBuilder()
@@ -1101,7 +1102,7 @@ export class UsersService {
             fileName = "blankPhotoAvatar.png";//make sure that it exists
             mimeType = "image/png";
         }
-        const filePath = `uploads/photos/${fileName}`;
+        const filePath = `${UPLOAD_DIRECTORY}/photos/${fileName}`;
         //read the file as stream and send out
         try {
             const stream = fs.createReadStream(filePath)
