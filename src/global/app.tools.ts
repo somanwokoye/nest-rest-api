@@ -1,5 +1,5 @@
 //ideas from https://attacomsian.com/blog/nodejs-encrypt-decrypt-data but modified for async using promisify (see https://stackoverflow.com/questions/63125747/how-to-use-async-await-using-crypto-randombytes-in-nodejs)
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { parsedEnv } from './app.settings';
 
 export class CryptoTools {
