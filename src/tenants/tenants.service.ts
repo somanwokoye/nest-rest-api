@@ -28,7 +28,7 @@ import { pipeline } from 'stream';//also for uploaded file streaming to file
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
-import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, mailSender, PROTOCOL, SAAS_API_VERSION, SAAS_PROTOCOL, SAAS_USE_API_VERSION_IN_URL, tenantSuccessfullyCreatedMessage, UPLOAD_DIRECTORY, USE_API_VERSION_IN_URL } from '../global/app.settings';
+import { API_VERSION, confirmEmailMailOptionSettings, EMAIL_VERIFICATION_EXPIRATION, LOGO_FILE_SIZE_LIMIT, mailSender, PROTOCOL, SAAS_API_VERSION, SAAS_PROTOCOL, SAAS_USE_API_VERSION_IN_URL, tenantSuccessfullyCreatedMessage, USE_API_VERSION_IN_URL } from '../global/app.settings';
 import { SendMailOptions } from 'nodemailer';
 import { CreateTenantConfigDetailDto } from '../tenant-config-details/dto/create-tenant-config-detail.dto';
 import { TenantConfigDetail } from '../tenant-config-details/entities/tenant-config-detail.entity';
@@ -36,6 +36,8 @@ import { RegionsService } from '../regions/regions.service';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 import Redis from 'ioredis'; //remember to also run npm install -D @types/ioredis
 import { CryptoTools } from '../global/app.tools';
+import path from 'path';
+import { Region } from 'src/regions/entities/region.entity';
 
 @Injectable()
 export class TenantsService {
@@ -436,8 +438,8 @@ export class TenantsService {
             const redisClientName = prop.tenantConfigDetailRedisProperties == null ? regionName : regionName + "_" + prop.tenantUniquePrefix
 
             //dycrypt password to pass to Redis
-            const redisPassword = await CryptoTools.decrypt({iv: prop.redisProperties.password.iv, content: prop.redisProperties.password.content}); 
-            const redisClient = await this.getRedisClient(redisClientName, { ...prop.redisProperties, password:redisPassword, sentinels }); //replace sentinels with properly formatted one.
+            const redisPassword = await CryptoTools.decrypt({ iv: prop.redisProperties.password.iv, content: prop.redisProperties.password.content });
+            const redisClient = await this.getRedisClient(redisClientName, { ...prop.redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
             //if sentinels was set as { host: string, port: number }[] | null in database
             //const redisClient = this.regionsService.getRedisClient(regionUniqueName, redisProperties)
@@ -481,8 +483,8 @@ export class TenantsService {
                 */
 
                 [`${prop.tenantUniquePrefix}SMTP_USER`]: prop.smtpAuth.smtpUser,
-                [`${prop.tenantUniquePrefix}SMTP_PWORD`]: prop.smtpAuth.smtpPword? prop.smtpAuth.smtpPword.content: null,
-                [`${prop.tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: prop.smtpAuth.smtpPword? prop.smtpAuth.smtpPword.iv: null,
+                [`${prop.tenantUniquePrefix}SMTP_PWORD`]: prop.smtpAuth.smtpPword ? prop.smtpAuth.smtpPword.content : null,
+                [`${prop.tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: prop.smtpAuth.smtpPword ? prop.smtpAuth.smtpPword.iv : null,
                 [`${prop.tenantUniquePrefix}SMTP_SERVICE`]: prop.smtpAuth.smtpService,
                 [`${prop.tenantUniquePrefix}SMTP_SECURE`]: prop.smtpAuth.smtpSecure ? 'true' : 'false',
                 [`${prop.tenantUniquePrefix}SMTP_HOST`]: prop.smtpAuth.smtpHost,
@@ -533,7 +535,7 @@ export class TenantsService {
                 [`${prop.tenantUniquePrefix}ELASTICSEARCH_USERNAME`]: prop.elasticSearchProperties.username,
                 [`${prop.tenantUniquePrefix}ELASTICSEARCH_PASSWORD`]: prop.elasticSearchProperties.password.content,
                 [`${prop.tenantUniquePrefix}ELASTICSEARCH_PASSWORD_CRYPTO_IV`]: prop.elasticSearchProperties.password.iv,
-                
+
                 [`${prop.tenantUniquePrefix}Theme_Custom`]: prop.theme.custom ? 'true' : 'false',
                 [`${prop.tenantUniquePrefix}Theme_Type`]: prop.theme.type,
                 [`${prop.tenantUniquePrefix}Theme_RootUrl`]: prop.theme.rootUrl,
@@ -541,9 +543,9 @@ export class TenantsService {
                 [`${prop.tenantUniquePrefix}Upload_Root_FileSystem`]: prop.rootFileSystem.path, //to be removed when I have adjusted client to use the second below
                 [`${prop.tenantUniquePrefix}Root_FileSystem_Path`]: prop.rootFileSystem.path,
                 [`${prop.tenantUniquePrefix}Root_FileSystem_Username`]: prop.rootFileSystem.username,
-                [`${prop.tenantUniquePrefix}Root_FileSystem_Password`]: prop.rootFileSystem.password? prop.rootFileSystem.password.content: null,
-                [`${prop.tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: prop.rootFileSystem.password? prop.rootFileSystem.password.iv: null,
-                
+                [`${prop.tenantUniquePrefix}Root_FileSystem_Password`]: prop.rootFileSystem.password ? prop.rootFileSystem.password.content : null,
+                [`${prop.tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: prop.rootFileSystem.password ? prop.rootFileSystem.password.iv : null,
+
 
                 [`${prop.tenantUniquePrefix}Logo_FileName`]: prop.logo ? prop.logo.fileName : null,
                 [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logo ? prop.logo.mimeType : null
@@ -588,7 +590,7 @@ export class TenantsService {
         const redisClientName = tenant.tenantConfigDetail.redisProperties == null ? tenant.regionName : tenant.regionName + "_" + tenantUniquePrefix;
 
         //dycrypt password to pass to Redis
-        const redisPassword = await CryptoTools.decrypt({iv: redisProperties.password.iv, content: redisProperties.password.content}); 
+        const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
         const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
         //if sentinels was set as { host: string, port: number }[] | null in database
@@ -732,7 +734,7 @@ export class TenantsService {
         //use region name if no tenant specific client
         const redisClientName = tenant.tenantConfigDetail.redisProperties == null ? tenant.regionName : tenant.regionName + "_" + tenantUniquePrefix
         //dycrypt password to pass to Redis
-        const redisPassword = await CryptoTools.decrypt({iv: redisProperties.password.iv, content: redisProperties.password.content}); 
+        const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
         const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
         //if sentinels was set as { host: string, port: number }[] | null in database
@@ -764,8 +766,8 @@ export class TenantsService {
             */
             [`${tenantUniquePrefix}SMTP_USER`]: smtpAuth.smtpUser,
 
-            [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword?smtpAuth.smtpPword.content: null,
-            [`${tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: smtpAuth.smtpPword?smtpAuth.smtpPword.iv: null,
+            [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword ? smtpAuth.smtpPword.content : null,
+            [`${tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: smtpAuth.smtpPword ? smtpAuth.smtpPword.iv : null,
 
             [`${tenantUniquePrefix}SMTP_SERVICE`]: smtpAuth.smtpService,
             [`${tenantUniquePrefix}SMTP_SECURE`]: smtpAuth.smtpSecure ? 'true' : 'false',
@@ -827,8 +829,8 @@ export class TenantsService {
             [`${tenantUniquePrefix}Root_FileSystem_Path`]: rootFileSystem.path,
             [`${tenantUniquePrefix}Root_FileSystem_Username`]: rootFileSystem.username,
 
-            [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password? rootFileSystem.password.content: null,
-            [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password? rootFileSystem.password.iv: null,
+            [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password ? rootFileSystem.password.content : null,
+            [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password ? rootFileSystem.password.iv : null,
 
             [`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
             [`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
@@ -1369,7 +1371,7 @@ export class TenantsService {
                     const elasticSearchProperties = tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenantConfigDetail.elasticSearchProperties;
                     const theme = tenantConfigDetail.theme == null ? region.theme : tenantConfigDetail.theme;
                     const rootFileSystem = tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenantConfigDetail.rootFileSystem;
-                    const logo = tenantConfigDetail.logo;
+                    //const logo = tenantConfigDetail.logo; //logo is with the tenant class
 
 
                     //The newTenantDBConnection and redisProperties consts below have no await on the right
@@ -1378,7 +1380,7 @@ export class TenantsService {
                     //newTenantDBConnection is for connection to the region's db so as to create the schema
                     //use region name if no tenant specific client
                     //first dycrypt password
-                    const dbPassword = await CryptoTools.decrypt({iv: dbProperties.password.iv, content: dbProperties.password.content})
+                    const dbPassword = await CryptoTools.decrypt({ iv: dbProperties.password.iv, content: dbProperties.password.content })
                     const dbConnectionName = tenantConfigDetail.dbProperties == null ? region.name : region.name + "_" + tenantUniquePrefix
                     const newTenantDBConnection = this.getDbConnection(dbConnectionName, {
                         type: 'postgres',
@@ -1404,7 +1406,7 @@ export class TenantsService {
                     //use region name if no tenant specific client
                     const redisClientName = tenantConfigDetail.redisProperties == null ? region.name : region.name + "_" + tenantUniquePrefix;
                     //dycrypt password to pass to Redis
-                    const redisPassword = await CryptoTools.decrypt({iv: redisProperties.password.iv, content: redisProperties.password.content}); 
+                    const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
                     const redisClient = this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
                     //if sentinels was set as { host: string, port: number }[] | null in database
@@ -1431,6 +1433,14 @@ export class TenantsService {
                     await fs.promises.mkdir(`${tenantUploadDirectory}/photos/users`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/photos/products`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/general`, { recursive: true });
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/logo`, { recursive: true });
+
+                    //Copy user photo avatar and logo avatar to tenantUploadDirectory. Tenants logo is always uploaded there
+                    const blankPhotoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankPhotoAvatar.png`);
+                    const blankLogoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankLogoAvatar.png`);
+
+                    await fs.promises.writeFile(`${tenantUploadDirectory}/photos/users`, blankPhotoAvatar);
+                    await fs.promises.writeFile(`${tenantUploadDirectory}/logo`, blankLogoAvatar);
 
                     /*I could do below for setting properties in redis by creating a Map and putting all the settings there 
                     and then pass the Map variable to redis client using mset e.g. 
@@ -1441,11 +1451,11 @@ export class TenantsService {
 
                     //I need to prepare the login password for superadmin
                     const superAdminPassword = await CryptoTools.generatePassword();
-                    const {iv, content} = await CryptoTools.encrypt(superAdminPassword);
+                    const { iv, content } = await CryptoTools.encrypt(superAdminPassword);
                     //console.log(superAdminPassword);
                     //console.log(iv);
                     //console.log(content);
-                    
+
                     //Alternative way to call mset without first creating a Map
                     const setPropertiesInRedis = redisClientReturned.mset({
 
@@ -1467,7 +1477,7 @@ export class TenantsService {
 
                         [`${tenantUniquePrefix}POSTGRES_PASSWORD`]: dbProperties.password.content,
                         [`${tenantUniquePrefix}POSTGRES_PASSWORD_CRYPTO_IV`]: dbProperties.password.iv,
-                        
+
                         [`${tenantUniquePrefix}POSTGRES_DB`]: dbProperties.database,
                         [`${tenantUniquePrefix}POSTGRES_SCHEMA`]: tenantUniquePrefix,
                         [`${tenantUniquePrefix}POSTGRES_SSL_CA`]: dbProperties.ssl != undefined ? dbProperties.ssl.ca : null,
@@ -1485,9 +1495,9 @@ export class TenantsService {
                         */
                         [`${tenantUniquePrefix}SMTP_USER`]: smtpAuth.smtpUser,
 
-                        [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword? smtpAuth.smtpPword.content : null,
-                        [`${tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: smtpAuth.smtpPword? smtpAuth.smtpPword.iv: null,
-                        
+                        [`${tenantUniquePrefix}SMTP_PWORD`]: smtpAuth.smtpPword ? smtpAuth.smtpPword.content : null,
+                        [`${tenantUniquePrefix}SMTP_PWORD_CRYPTO_IV`]: smtpAuth.smtpPword ? smtpAuth.smtpPword.iv : null,
+
                         [`${tenantUniquePrefix}SMTP_SERVICE`]: smtpAuth.smtpService,
                         [`${tenantUniquePrefix}SMTP_SECURE`]: smtpAuth.smtpSecure ? 'true' : 'false',
                         [`${tenantUniquePrefix}SMTP_HOST`]: smtpAuth.smtpHost,
@@ -1546,11 +1556,11 @@ export class TenantsService {
                         //[`${tenantUniquePrefix}Upload_Root_FileSystem`]: rootFileSystem.path, //to be removed when I have adjusted client to use the second below
                         [`${tenantUniquePrefix}Root_FileSystem_Path`]: rootFileSystem.path,
                         [`${tenantUniquePrefix}Root_FileSystem_Username`]: rootFileSystem.username,
-                        [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password? rootFileSystem.password.content: null,
-                        [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password? rootFileSystem.password.iv : null,
+                        [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password ? rootFileSystem.password.content : null,
+                        [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password ? rootFileSystem.password.iv : null,
 
-                        [`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
-                        [`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
+                        //[`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
+                        //[`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
 
                     });
 
@@ -1558,9 +1568,9 @@ export class TenantsService {
                     //now await both before closing db and moving to webserver setup and mail sending
                     //await runQuery;
                     //Only close or disconnect if it is unique to the tenant. If for whole region, keep alive
-                    if (tenantConfigDetail.dbProperties != null) newTenantDBConnectionReturned.close();
+                    //if (tenantConfigDetail.dbProperties != null) newTenantDBConnectionReturned.close();
                     await setPropertiesInRedis;
-                    if (tenantConfigDetail.redisProperties != null) redisClientReturned.disconnect();
+                    //if (tenantConfigDetail.redisProperties != null) redisClientReturned.disconnect();
 
                     //get the webServer setup for the client
                     /*One way is to upload a uniqueName.conf file to be uploaded to a directory that is read by nginx.conf
@@ -1573,10 +1583,10 @@ export class TenantsService {
                     //Get primary contact information
                     //const [primaryContactfirstName, primaryContactLastName, primaryContactPrimaryEmailAddress] = await this.getPrimaryContactNameAndEmail(tenantId);
                     const mailText = tenantSuccessfullyCreatedMessage.textTemplate
-                    .replace('{url}', url)
-                    .replace('{name}', `${primaryContactFirstName} ${primaryContactLastName}`)
-                    .replace('{password}', superAdminPassword)
-                    .replace('{username}', primaryContactPrimaryEmailAddress);
+                        .replace('{url}', url)
+                        .replace('{name}', `${primaryContactFirstName} ${primaryContactLastName}`)
+                        .replace('{password}', superAdminPassword)
+                        .replace('{username}', primaryContactPrimaryEmailAddress);
 
                     //mailOptions
                     const mailOptions: SendMailOptions = {
@@ -1596,13 +1606,13 @@ export class TenantsService {
                     */
 
                     mailSender(mailOptions);
-                    
+
                 } catch (error) {
                     console.log(`Investigation required in createAndSetTenantConfigDetail: ${error}`);
                     //Ensure that tenant is not active and investigate the strange problem
-                    
+
                     await this.unsetTenantPropertiesInRedisByTenantId(tenantId);
-                    
+
                     throw new HttpException({
                         status: HttpStatus.INTERNAL_SERVER_ERROR,
                         error,
@@ -1753,24 +1763,43 @@ export class TenantsService {
         try {
             //console.log('about to set options')
             const options = { limits: { fileSize: LOGO_FILE_SIZE_LIMIT } }; //limit options may be passed. Unit is bytes. See main.ts for comments on other options
-            const data = await req.file();
+            const data = await req.file(options);
 
             //save to file
             //We will use uuid (see https://github.com/uuidjs/uuid) to generate filename instead of using data.filename
             //note: npm install uuid @types/uuid
-            let { fileName } = await this.getLogoInfo(tenantId);
+            let { tenantUniquePrefix, fileName, rootFileSystemPath, redisClientName, redisProperties } = await this.getLogoInfo(tenantId);
             if (fileName == null) fileName = uuidv4(); //no previous photo, generate new fileName
+
             //time to write
+            const filePath = `${rootFileSystemPath}/${tenantUniquePrefix}/logos/${fileName}`;
             const pump = util.promisify(pipeline)
-
-            await pump(data.file, fs.createWriteStream(`${UPLOAD_DIRECTORY}/logos/${fileName}`))//beware of filesystem permissions
-
+            //await pump(data.file, fs.createWriteStream(`${UPLOAD_DIRECTORY}/logos/${fileName}`))//beware of filesystem permissions
+            await pump(data.file, fs.createWriteStream(filePath))//beware of filesystem permissions
+            
             //save the fileName to logo and mimetype to tenant logoMimeType field
             const updateResult = await this.tenantRepository.createQueryBuilder()
                 .update(Tenant)
                 .set({ logo: fileName, logoMimeType: data.mimetype })
                 .where("id = :tenantId", { tenantId })
                 .execute();
+
+            //time to write to region tenant's redis
+            //As sentinels in db was set as string, first convert to proper object format
+            let sentinels: { host: string, port: number }[] | null = null;
+            if (redisProperties.sentinels != undefined) {
+                sentinels = JSON.parse(redisProperties.sentinels)
+                //redisPropertiesMod = { ...redisProperties, sentinels }
+            }
+
+            //dycrypt password to pass to Redis
+            const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
+            const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
+
+            await redisClient.mset({
+                [`${tenantUniquePrefix}Logo_FileName`]: fileName,
+                [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype
+            })
 
             reply.send(updateResult);
         } catch (error) {
@@ -1795,18 +1824,39 @@ export class TenantsService {
      * Get information about tenant logo
      * @param tenantId 
      */
-    async getLogoInfo(tenantId: number): Promise<{ fileName: string, mimeType: string }> {
+    async getLogoInfo(tenantId: number): Promise<{ tenantUniquePrefix: string, fileName: string, mimeType: string, rootFileSystemPath: string, redisClientName: string, redisProperties:  {
+        host: string;
+        port: number;
+        password: {
+            iv: string;
+            content: string;
+        };
+        db: number;
+        sentinels?: string;
+        family?: number;
+        ca?: string;
+    }}> {
         try {
-            /* Below is not working. .select has a problem with case sensitivity
-            return await this.tenantRepository.createQueryBuilder("tenant")
-                .select(["tenant.logo AS fileName", "tenant.logoMimeType as mimeType"])
-                .where("id = :tenantId", { tenantId })
-                //.cache(1000) //1sec by default. You can change the value
-                .execute();
-                */
-            const tenant: Tenant = await this.tenantRepository.findOne(tenantId)
+            //const tenant: Tenant = await this.tenantRepository.findOne(tenantId)
 
-            return { fileName: tenant.logo, mimeType: tenant.logoMimeType }
+            const tenant: Tenant = await this.tenantRepository.createQueryBuilder("tenant")
+                .leftJoin("tenant.tenantConfigDetail", "tenantConfigDetail")
+                .select(["tenant.uuid", "tenant.logo", "tenant.logoMimeType", "tenant.regionName", "tenantConfigDetail.rootFileSystem", "tenantConfigDetail.redisProperties"])
+                .where("tenant.id = :tenantId", { tenantId })
+                .getOne();
+
+            //Optimisation review required below. To avoid a second visit to db, I may need to relate regionId so as to query at once
+            const region: Region = await this.regionsService.findRegionByName(tenant.regionName);
+
+            const rootFileSystem = tenant.tenantConfigDetail && tenant.tenantConfigDetail.rootFileSystem != null ? tenant.tenantConfigDetail.rootFileSystem : region.rootFileSystem;
+            const redisProperties = tenant.tenantConfigDetail && tenant.tenantConfigDetail.redisProperties != null ? tenant.tenantConfigDetail.redisProperties : region.redisProperties;
+
+            //Also get redisClientName, just in case it is already open
+            const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+            const redisClientName = tenant.tenantConfigDetail && tenant.tenantConfigDetail.redisProperties != null ? region.name + "_" + tenantUniquePrefix : region.name;
+            
+            return { tenantUniquePrefix, fileName: tenant.logo, mimeType: tenant.logoMimeType, rootFileSystemPath: rootFileSystem.path, redisClientName, redisProperties }
+
         } catch (error) {
             console.log(error)
             throw new HttpException({
@@ -1818,13 +1868,14 @@ export class TenantsService {
 
     async getTenantLogo(tenantId: number, reply: Reply) {
         const logoInfo = await this.getLogoInfo(tenantId);
-        let { fileName, mimeType } = logoInfo;
+        let { tenantUniquePrefix, fileName, mimeType, rootFileSystemPath } = logoInfo;
         if (fileName == null || undefined) {
 
             fileName = "blankLogoAvatar.png";//make sure that it exists
             mimeType = "image/png";
         }
-        const filePath = `${UPLOAD_DIRECTORY}/logos/${fileName}`;
+
+        const filePath = `${rootFileSystemPath}/${tenantUniquePrefix}/logos/${fileName}`;
         //read the file as stream and send out
         try {
             const stream = fs.createReadStream(filePath)
@@ -1954,7 +2005,7 @@ export class TenantsService {
     async getTenantUniqueIdentities(tenantId: number): Promise<string[]> {
         const tenant: Tenant = await this.tenantRepository.createQueryBuilder("tenant")
             .leftJoin("tenant.primaryContact", "primaryContact")
-            .select(["tenant.uuid", "tenant.subDomainName", "tenant.customURLSlug","tenant.regionName","primaryContact.firstName", "primaryContact.lastName","primaryContact.primaryEmailAddress","primaryContact.gender", "primaryContact.dateOfBirth"])
+            .select(["tenant.id", "tenant.uuid", "tenant.subDomainName", "tenant.customURLSlug", "tenant.regionName", "primaryContact.firstName", "primaryContact.lastName", "primaryContact.primaryEmailAddress", "primaryContact.gender", "primaryContact.dateOfBirth"])
             .where("tenant.id = :tenantId", { tenantId })
             .getOne();
 
