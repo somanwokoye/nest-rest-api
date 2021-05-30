@@ -10,7 +10,6 @@ import { SignOptions } from 'jsonwebtoken';
 import jwt_decode from 'jwt-decode';
 import { GoogleProfileDto } from './dtos/google-profile.dto';
 import { FacebookProfileDto } from './dtos/facebook-profile.dto';
-import { FbConstants } from './auth.interfaces';
 
 @Injectable()
 export class AuthService {

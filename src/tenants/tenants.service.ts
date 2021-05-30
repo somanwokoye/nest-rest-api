@@ -393,7 +393,8 @@ export class TenantsService {
                 const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
                 const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
                 const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
-                const logo = tenant.tenantConfigDetail.logo;
+                const logo = tenant.logo;
+                const logoMimeType = tenant.logoMimeType;
 
                 const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
                 const customURLSlug: string = tenant.customURLSlug;
@@ -404,11 +405,9 @@ export class TenantsService {
                 properties.push({
                     dbProperties, redisProperties, smtpAuth, otherUserOptions, jwtConstants,
                     authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
-                    theme, rootFileSystem, logo, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
+                    theme, rootFileSystem, logo, logoMimeType, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
                 });
 
-
-                //console.log(smtpAuth);
             }
 
         });
@@ -547,12 +546,12 @@ export class TenantsService {
                 [`${prop.tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: prop.rootFileSystem.password ? prop.rootFileSystem.password.iv : null,
 
 
-                [`${prop.tenantUniquePrefix}Logo_FileName`]: prop.logo ? prop.logo.fileName : null,
-                [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logo ? prop.logo.mimeType : null
+                [`${prop.tenantUniquePrefix}Logo_FileName`]: prop.logo,
+                [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logoMimeType
 
             });
 
-            if (prop.tenantConfigDetailRedisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+            //if (prop.tenantConfigDetailRedisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
 
         })
 
@@ -686,7 +685,7 @@ export class TenantsService {
             `${tenantUniquePrefix}Logo_Mimetype`
         ]);
 
-        if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+        //if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
     }
 
     /**
@@ -719,7 +718,9 @@ export class TenantsService {
         const elasticSearchProperties = tenant.tenantConfigDetail.elasticSearchProperties == null ? region.elasticSearchProperties : tenant.tenantConfigDetail.elasticSearchProperties;
         const theme = tenant.tenantConfigDetail.theme == null ? region.theme : tenant.tenantConfigDetail.theme;
         const rootFileSystem = tenant.tenantConfigDetail.rootFileSystem == null ? region.rootFileSystem : tenant.tenantConfigDetail.rootFileSystem;
-        const logo = tenant.tenantConfigDetail.logo;
+        const logo = tenant.logo;
+        const logoMimeType = tenant.logoMimeType;
+
 
 
         //Get client connection to Redis
@@ -832,12 +833,12 @@ export class TenantsService {
             [`${tenantUniquePrefix}Root_FileSystem_Password`]: rootFileSystem.password ? rootFileSystem.password.content : null,
             [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password ? rootFileSystem.password.iv : null,
 
-            [`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
-            [`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
+            [`${tenantUniquePrefix}Logo_FileName`]: logo,
+            [`${tenantUniquePrefix}Logo_Mimetype`]: logoMimeType
 
         });
 
-        if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+        //if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
     }
 
     /*Let's work on functions to set/add and unset/remove relations. set/unset applies to x-to-one and add/remove applies to x-to-many */
@@ -1434,6 +1435,11 @@ export class TenantsService {
                     await fs.promises.mkdir(`${tenantUploadDirectory}/photos/products`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/general`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/logo`, { recursive: true });
+                    //TODO. I need to work on theme to include the following paths. In tenant service, include theme upload and get theme, similar to logo but text. The cssURl can be a link like that of logo
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/theme`, { recursive: true });
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/theme/css`, { recursive: true });
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/theme/js`, { recursive: true });
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/theme/img`, { recursive: true });
 
                     //Copy user photo avatar and logo avatar to tenantUploadDirectory. Tenants logo is always uploaded there
                     const blankPhotoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankPhotoAvatar.png`);

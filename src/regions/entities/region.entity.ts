@@ -270,6 +270,7 @@ export class Region extends BaseAbstractEntity {
         generalFileSizeLimit: number
     }
 
+    /**Todo: Redo theme to be more dynamic. Use upload root directory where themes are uploaded */
     @Column("simple-json",
         {
             default: {
