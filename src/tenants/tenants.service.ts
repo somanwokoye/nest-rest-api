@@ -1451,7 +1451,7 @@ export class TenantsService {
                     const blankLogoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankLogoAvatar.png`);
 
                     await fs.promises.writeFile(`${tenantUploadDirectory}/photos/users/blankPhotoAvatar.png`, blankPhotoAvatar);
-                    await fs.promises.writeFile(`${tenantUploadDirectory}/logo/blankLogoAvatar.png`, blankLogoAvatar);
+                    await fs.promises.writeFile(`${tenantUploadDirectory}/logos/blankLogoAvatar.png`, blankLogoAvatar);
 
                     /*I could do below for setting properties in redis by creating a Map and putting all the settings there 
                     and then pass the Map variable to redis client using mset e.g. 
