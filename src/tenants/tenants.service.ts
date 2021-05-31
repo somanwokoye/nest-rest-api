@@ -1810,13 +1810,8 @@ export class TenantsService {
             
             await redisClient.mset({
                 [`${tenantUniquePrefix}Logo_FileName`]: fileName,
-                [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype,
-                [`${tenantUniquePrefix}Testing_write`]: "Testing write"
+                [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype
             })
-
-            console.log(tenantUniquePrefix)
-            console.log(fileName);
-            console.log(data.mimetype)
 
             reply.send(updateResult);
         } catch (error) {
