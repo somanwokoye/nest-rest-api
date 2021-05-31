@@ -1450,9 +1450,18 @@ export class TenantsService {
                     const blankPhotoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankPhotoAvatar.png`);
                     const blankLogoAvatar = await fs.promises.readFile(`${path.join(__dirname, '../../', 'avatars')}/blankLogoAvatar.png`);
 
+                    //time to write
+                    /*
+                    const pump = util.promisify(pipeline)
+                    let filePath = `${tenantUploadDirectory}/photos/users/blankPhotoAvatar`;
+                    await pump(blankPhotoAvatar, fs.createWriteStream(filePath))//beware of filesystem permissions
+                    filePath = `${tenantUploadDirectory}/logo/blankLogoAvatar`;
+                    await pump(blankLogoAvatar, fs.createWriteStream(filePath))//beware of filesystem permissions
+                    */
+
                     console.log('about to write')
-                    await fs.promises.writeFile(`${tenantUploadDirectory}/photos/users`, blankPhotoAvatar);
-                    await fs.promises.writeFile(`${tenantUploadDirectory}/logo`, blankLogoAvatar);
+                    await fs.promises.writeFile(`${tenantUploadDirectory}/photos/users/blankPhotoAvatar`, blankPhotoAvatar);
+                    await fs.promises.writeFile(`${tenantUploadDirectory}/logo/blankLogoAvatar`, blankLogoAvatar);
                     console.log('finished writing')
 
                     /*I could do below for setting properties in redis by creating a Map and putting all the settings there 
@@ -1789,7 +1798,7 @@ export class TenantsService {
             const pump = util.promisify(pipeline)
             //await pump(data.file, fs.createWriteStream(`${UPLOAD_DIRECTORY}/logos/${fileName}`))//beware of filesystem permissions
             await pump(data.file, fs.createWriteStream(filePath))//beware of filesystem permissions
-            
+
             //save the fileName to logo and mimetype to tenant logoMimeType field
             const updateResult = await this.tenantRepository.createQueryBuilder()
                 .update(Tenant)
@@ -1837,18 +1846,20 @@ export class TenantsService {
      * Get information about tenant logo
      * @param tenantId 
      */
-    async getLogoInfo(tenantId: number): Promise<{ tenantUniquePrefix: string, fileName: string, mimeType: string, rootFileSystemPath: string, redisClientName: string, redisProperties:  {
-        host: string;
-        port: number;
-        password: {
-            iv: string;
-            content: string;
-        };
-        db: number;
-        sentinels?: string;
-        family?: number;
-        ca?: string;
-    }}> {
+    async getLogoInfo(tenantId: number): Promise<{
+        tenantUniquePrefix: string, fileName: string, mimeType: string, rootFileSystemPath: string, redisClientName: string, redisProperties: {
+            host: string;
+            port: number;
+            password: {
+                iv: string;
+                content: string;
+            };
+            db: number;
+            sentinels?: string;
+            family?: number;
+            ca?: string;
+        }
+    }> {
         try {
             //const tenant: Tenant = await this.tenantRepository.findOne(tenantId)
 
@@ -1867,7 +1878,7 @@ export class TenantsService {
             //Also get redisClientName, just in case it is already open
             const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
             const redisClientName = tenant.tenantConfigDetail && tenant.tenantConfigDetail.redisProperties != null ? region.name + "_" + tenantUniquePrefix : region.name;
-            
+
             return { tenantUniquePrefix, fileName: tenant.logo, mimeType: tenant.logoMimeType, rootFileSystemPath: rootFileSystem.path, redisClientName, redisProperties }
 
         } catch (error) {
