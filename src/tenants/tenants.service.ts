@@ -1803,14 +1803,19 @@ export class TenantsService {
                 //redisPropertiesMod = { ...redisProperties, sentinels }
             }
 
-            //dycrypt password to pass to Redis
+            //decrypt password to pass to Redis
             const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
             const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
+            
             await redisClient.mset({
                 [`${tenantUniquePrefix}Logo_FileName`]: fileName,
-                [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype
+                [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype,
+                [`${tenantUniquePrefix}Testing_write`]: "Tesing write"
             })
+
+            console.log(fileName);
+            console.log(data.mimetype)
 
             reply.send(updateResult);
         } catch (error) {
