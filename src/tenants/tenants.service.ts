@@ -1434,7 +1434,7 @@ export class TenantsService {
                     await fs.promises.mkdir(`${tenantUploadDirectory}/photos/users`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/photos/products`, { recursive: true });
                     await fs.promises.mkdir(`${tenantUploadDirectory}/general`, { recursive: true });
-                    await fs.promises.mkdir(`${tenantUploadDirectory}/logo`, { recursive: true });
+                    await fs.promises.mkdir(`${tenantUploadDirectory}/logos`, { recursive: true });
                     /*TODO. I need to work on theme to include the following paths. 
                     In tenant service, include theme upload and get theme, similar to logo but text. 
                     The cssURl can be a dynamic link that streams the css, like that of logo
