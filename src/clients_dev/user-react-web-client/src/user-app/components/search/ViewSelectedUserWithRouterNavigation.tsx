@@ -59,6 +59,7 @@ const ViewSelectedUserWithRouterNavigation: React.FC = () => {
 
     const history = useHistory();//for goBack use onClickCloseButton
 
+    //history.location.state contains json string passed with history.push in SearchUsersWithReactNavigation
     const state: string = history.location.state as string;
 
     //alert(state)

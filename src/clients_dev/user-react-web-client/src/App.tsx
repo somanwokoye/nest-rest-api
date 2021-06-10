@@ -11,6 +11,7 @@ import {
 //import SearchUsers from './user-app/components/search/SearchUsers' //this option does not use react-router subroutes
 //import SearchUsersWithRouterNavigation from './user-app/components/search/SearchUsersWithRouterNavigation';
 import ViewSelectedUserWithRouterNavigation from './user-app/components/search/ViewSelectedUserWithRouterNavigation';
+//import SearchUsers from './user-app/components/search/SearchUsers';
 //import RoleApp from './components/role/Role'; //replaced with loadable component below
 //import UserApp from './user-app/UserApp'; //replaced with loadable component below
 
@@ -29,7 +30,7 @@ const Loading: React.FC = () => {
 }
 
 //I am making SearchUsersWithRouterNavigation reloadable because renderToNodeStream on server side will fail with the use of localStorage
-const SearchUsersWithRouterNavigation = loadable(() => import("./user-app/components/search/SearchUsersWithRouterNavigation"), {
+const SearchUsersWithRouterNavigation = loadable(() => import("./user-app/components/search/SearchUsersWithRouterNavigation2"), {
   fallback: <Loading />
 });
 
@@ -47,6 +48,7 @@ type Props = {
 }
 
 const App: React.FC<Props> = ({ baseUrl }) => {
+  
   return (
     <div>
       <div className="navbar is-transparent" role="navigation" aria-label="main navigation">

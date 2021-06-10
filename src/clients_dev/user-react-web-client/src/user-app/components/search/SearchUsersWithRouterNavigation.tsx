@@ -2,7 +2,7 @@
  * Here, the goal is to setup routes for ViewSearchResults, instead of using a modal window.
  * Not yet in order. Not yet in use
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Autosuggest from 'react-autosuggest'
 import { IUser } from '../../app.interfaces';
 import { SearchHandlers } from '../../crud-handlers/search-handlers';
@@ -12,7 +12,6 @@ import {
     useHistory, //see https://ultimatecourses.com/blog/programmatically-navigate-react-router
     useRouteMatch //see https://reactrouter.com/web/example/nesting
 } from 'react-router-dom';
-import { userInfo } from 'os';
 
 type SuggestionType = { //same as setup in server
     score: number,

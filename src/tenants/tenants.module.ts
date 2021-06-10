@@ -12,17 +12,20 @@ import { Theme } from './modules/themes/models/theme.entity';
 import { Billing } from './modules/billings/models/billing.entity';
 import { TenantTeam } from './models/tenant-team';
 import { TenantAccountOfficer } from './models/tenant-account-officer';
-import { TenantConfigDetail } from 'src/tenant-config-details/entities/tenant-config-detail.entity';
-import { RegionsService } from 'src/regions/regions.service';
-import { Region } from 'src/regions/entities/region.entity';
+import { TenantConfigDetail } from '../tenant-config-details/entities/tenant-config-detail.entity';
+import { RegionsService } from '../regions/regions.service';
+import { Region } from '../regions/entities/region.entity';
+import UsersSearchService from '../search/services/usersSearch.services';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Tenant, CustomTheme, User, Theme, Billing, TenantConfigDetail, TenantTeam, TenantAccountOfficer, Region]), //include all the entities that will be involved in tenantsService. Usually, they have relationship
     ThemesModule, 
-    BillingsModule
+    BillingsModule,
+    SearchModule
   ],
   controllers: [TenantsController],
-  providers: [TenantsService, RegionsService]
+  providers: [TenantsService, RegionsService, UsersSearchService]
 })
 export class TenantsModule {}

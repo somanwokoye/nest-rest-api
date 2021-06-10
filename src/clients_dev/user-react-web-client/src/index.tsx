@@ -4,12 +4,13 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter as Router } from 'react-router-dom'
+import { API_VERSION_URL } from './global/app.settings';
 
 
 ReactDOM.hydrate(
   <Router>
     <React.StrictMode>
-      <App baseUrl="/v1/users/web" />
+      <App baseUrl={`${API_VERSION_URL}/users/web`} />
     </React.StrictMode>
   </Router>,
   document.getElementById('root')

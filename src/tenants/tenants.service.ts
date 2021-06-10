@@ -37,7 +37,8 @@ import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConne
 import Redis from 'ioredis'; //remember to also run npm install -D @types/ioredis
 import { CryptoTools } from '../global/app.tools';
 import path from 'path';
-import { Region } from 'src/regions/entities/region.entity';
+import { Region } from '../regions/entities/region.entity';
+import UsersSearchService from '../search/services/usersSearch.services';
 
 @Injectable()
 export class TenantsService {
@@ -57,7 +58,8 @@ export class TenantsService {
         @InjectRepository(TenantConfigDetail) private tenantConfigDetailRepository: Repository<TenantConfigDetail>,
         @InjectConnection('default')//You can inject connection by name. See https://docs.nestjs.com/techniques/database#multiple-databases
         private connection: Connection,
-        private readonly regionsService: RegionsService
+        private readonly regionsService: RegionsService,
+        private usersSearchService: UsersSearchService,
     ) { }
 
     /**
@@ -111,13 +113,16 @@ export class TenantsService {
 
             //if primary contact was created, check the email and send verification message
             //check if user primary email and then provoke verification process, if unverified ab initio
-            if (tenant.primaryContact != null && tenant.primaryContact.primaryEmailAddress != null) {
-                if (createPrimaryContact == 1 && !tenant.primaryContact.isPrimaryEmailAddressVerified) {
-                    let user: User = null;
-                    user = await this.userRepository.findOne({ where: { primaryEmailAddress: tenant.primaryContact.primaryEmailAddress } });
+            //if (tenant.primaryContact != null && tenant.primaryContact.primaryEmailAddress != null) {
+            if (createPrimaryContact == 1) { //if created primary contact
+                const user: User = await this.userRepository.findOne({ where: { primaryEmailAddress: tenant.primaryContact.primaryEmailAddress } });
+                if (!tenant.primaryContact.isPrimaryEmailAddressVerified) {
                     this.sendVerificationEmail(user, req);
                 }
+                //I also need to index the user
+                this.usersSearchService.indexUser(user);
             }
+            //}
 
             //At this point, we need to decide whether to create the connection details. Only do so if primary Email Address is Verified
             if (tenant.primaryContact.isPrimaryEmailAddressVerified)
@@ -1807,7 +1812,7 @@ export class TenantsService {
             const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
             const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
-            
+
             await redisClient.mset({
                 [`${tenantUniquePrefix}Logo_FileName`]: fileName,
                 [`${tenantUniquePrefix}Logo_Mimetype`]: data.mimetype

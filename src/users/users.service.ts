@@ -280,6 +280,7 @@ export class UsersService {
             }*/
             //exclude user password, if any. Password should be edited either by user setPassword or admin resetPassword
             const { passwordHash, ...userToSave } = user
+            //console.log(JSON.stringify(userToSave));
             const updateResult = await this.userRepository.update(id, { ...userToSave })
             //update search index before return
             this.usersSearchService.update(userToSave as User)
@@ -318,6 +319,7 @@ export class UsersService {
             }*/
             //exclude user password if any. Password should be edited either by user setPassword or admin resetPassword
             const { passwordHash, ...userToSave } = user
+            //console.log(JSON.stringify(userToSave));
             const updatedUser = await this.userRepository.save({ ...userToSave })
             //update search index before return
             this.usersSearchService.update(userToSave as User)
