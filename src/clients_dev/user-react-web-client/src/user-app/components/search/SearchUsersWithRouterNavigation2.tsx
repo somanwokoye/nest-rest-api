@@ -21,12 +21,12 @@ type SuggestionType = { //same as setup in server
 }
 
 type StateType = {
-    value: string,
     suggestions: SuggestionType[],
     user?: IUser | null//for use whenever a user is selected.
     showUser?: boolean
     searchResults?: [] | null
     showSearchResults?: boolean
+    searchMode?: boolean //search mode vs suggest mode. Only show options when in search mode. Enter search mode on KeyDown is enter
 }
 
 
@@ -34,12 +34,11 @@ const SearchUsers: React.FC = () => {
 
     const initialState = {
         suggestions: [],
-        value: '',
         user: null,
         showUser: false,
         searchResults: null,
         showSearchResults: false,
-
+        searchMode: false //search mode vs suggest mode. Only show options when in search mode. Enter search mode on KeyDown is enter
 
     }
 
@@ -72,7 +71,7 @@ const SearchUsers: React.FC = () => {
 
                 //if (user) alert(JSON.stringify(user))
                 //Get ready to show User
-                setState({ ...state, showUser: true, user })
+                setState({ ...state, showUser: true, user, searchMode: false })
             } catch (error) {
                 //alert(error)
                 console.log(error)
@@ -91,26 +90,34 @@ const SearchUsers: React.FC = () => {
             event.preventDefault();
             //alert(`you have pressed enter key. The current entry is ${event.target.value}`);
             //At this point, call a general search
-            const searchResults = await SearchHandlers.searchUsers(event.target.value);
-            //alert(JSON.stringify(searchResults));
-            //Get ready to show SERP
-            setState({ ...state, searchResults, showSearchResults: true, value: '' })
+            try {
+                const searchResults = await SearchHandlers.searchUsers(event.target.value);
+                //alert(JSON.stringify(searchResults));
+                //Get ready to show SERP
+                setState({ ...state, searchResults, showSearchResults: true, searchMode: true })
+            } catch (error) {
+                console.log(error)
+            }
+            
+        }else{
+            setState({ ...state, searchMode: false })
         }
-        try {
 
-        } catch (error) {
-
-            console.log(error)
-        }
     }
 
     const customStyles = { //can be created inline for each of the components of react-search. See https://react-select.com/styles#style-object. May be better to use class already defined in CSS for the whole page/site; see https://react-select.com/styles#using-classnames 
-        option: (provided: any, state: { isSelected: boolean; }) => ({
+        option: (provided: any, state_: { isSelected: boolean; }) => ({
             ...provided,
             borderBottom: '1px dotted pink',
-            color: state.isSelected ? 'yellow' : 'blue',
+            color: state_.isSelected ? 'yellow' : 'blue',
             padding: 20,
-            width: '100%'
+            width: '100%',
+            display: state.searchMode? 'none' : 'flex'
+        }),
+        noOptionsMessage: () => ({
+            display: state.searchMode? 'none' : 'flex',
+            justifyContent: 'center',
+            color: 'red'
         }),
         control: () => ({
             // none of react-select's styles are passed to <Control />
@@ -137,7 +144,7 @@ const SearchUsers: React.FC = () => {
     const history = useHistory(); //To dynamically go to a route. See https://ultimatecourses.com/blog/programmatically-navigate-react-router
 
     const handleViewSearchResult = (user: IUser) => {//to be passed on to the SearchResult component via SearchResultList. I should have used context though.
-        setState({ ...state, showUser: true, user });
+        setState({ ...state, showUser: true, user, searchMode: false });
     }
 
     return (
@@ -154,6 +161,7 @@ const SearchUsers: React.FC = () => {
                             cacheOptions
                             name="search"
                             styles={customStyles}
+                            controlShouldRenderValue={true}
                             /*Theme is another way of managing styles, see https://react-select.com/styles#overriding-the-theme
                             theme={theme => ({
                                 ...theme,

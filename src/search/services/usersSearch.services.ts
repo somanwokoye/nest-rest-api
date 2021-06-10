@@ -91,7 +91,7 @@ export default class UsersSearchService implements OnModuleInit {
                         //input: [user.firstName, user.lastName, user.homeAddress ? user.homeAddress : '']//homeAddress has the possibility of being null, hence the tenary operator to check. No null is allowed
                         input: [user.lastName]
                     },
-                    suggestFullNameWithWeights:[ //this could apply to products with weights attached to make, name, model, etc?
+                    suggestFullNameWithWeights: [ //this could apply to products with weights attached to make, name, model, etc?
                         {
                             input: user.firstName,
                             weight: 2
@@ -176,32 +176,58 @@ export default class UsersSearchService implements OnModuleInit {
                 index: this.index,
                 body: {
                     suggest: {
-                        'suggestFullName': {
+                        'suggestFullName': { //needed, in case the person types more than just first or last name
                             prefix: queryText,
                             completion: {
                                 field: 'suggestFullName', //name of the field that was mapped as completion field.
                                 size: 5, //number of suggestions to return. Optional. Defaults to 5
                                 skip_duplicates: false, //defaults to false. When set to true, it can be more resource intensive
                                 fuzzy: { // if included, it means that you can have a typo in your search and still get results back. Resource intensive
-                                    fuzziness: 1 //defaults to AUTO
+                                    fuzziness: 'AUTO' //defaults to AUTO
                                 },
                                 analyzer: "simple", //defaults to what was used to index
                                 //sort: "score" //not yet functional
-                                
+
+                            }
+                            //a lot more possibilities, including context. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#context-suggester
+                        },
+                        'suggestFirstName': {
+                            prefix: queryText,
+                            completion: {
+                                field: 'suggestFirstName', //name of the field that was mapped as completion field.
+                                size: 5, //number of suggestions to return. Optional. Defaults to 5
+                                skip_duplicates: false, //defaults to false. When set to true, it can be more resource intensive
+                                fuzzy: { // if included, it means that you can have a typo in your search and still get results back. Resource intensive
+                                    fuzziness: 'AUTO' //defaults to AUTO
+                                },
+                                analyzer: "simple", //defaults to what was used to index
+                                //sort: "score" //not yet functional
+
+                            }
+                            //a lot more possibilities, including context. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#context-suggester
+                        },
+                        'suggestLastName': {
+                            prefix: queryText,
+                            completion: {
+                                field: 'suggestLastName', //name of the field that was mapped as completion field.
+                                size: 5, //number of suggestions to return. Optional. Defaults to 5
+                                skip_duplicates: false, //defaults to false. When set to true, it can be more resource intensive
+                                fuzzy: { // if included, it means that you can have a typo in your search and still get results back. Resource intensive
+                                    fuzziness: 'AUTO' //defaults to AUTO
+                                },
+                                analyzer: "simple", //defaults to what was used to index
+                                //sort: "score" //not yet functional
+
                             }
                             //a lot more possibilities, including context. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#context-suggester
                         }
                     }
                 }
             })
-            /*
-            console.log(JSON.stringify(body))
-            console.log(`No of suggestFullName = ${body.suggest.suggestFullName.length}`)
-            console.log(`No of suggestFullName[0] options = ${body.suggest.suggestFullName[0].options.length}`)
-            */
-            
+
             const suggestions = [];
-            body.suggest.suggestFullName[0].options.map((item) => {
+            body.suggest.suggestFirstName[0].options.map((item) => {
+
                 suggestions.push({
                     score: item._score, //sending score as well in case the client wants to sort with it
                     id: item._source.id,
@@ -210,7 +236,31 @@ export default class UsersSearchService implements OnModuleInit {
                     homeAddress: item._source.homeAddress,
                     landlord: item._source.landlord
                 });
-            }); 
+            });
+            body.suggest.suggestLastName[0].options.map((item) => {
+                //const index = currentUsers!.findIndex((user) => user.id === action.payload!.id);
+                if (suggestions.findIndex((suggestion) => suggestion.id === item._source.id) == -1) //not already added
+                    suggestions.push({
+                        score: item._score, //sending score as well in case the client wants to sort with it
+                        id: item._source.id,
+                        firstName: item._source.firstName,
+                        lastName: item._source.lastName,
+                        homeAddress: item._source.homeAddress,
+                        landlord: item._source.landlord
+                    });
+            });
+            body.suggest.suggestFullName[0].options.map((item) => {
+                //const index = currentUsers!.findIndex((user) => user.id === action.payload!.id);
+                if (suggestions.findIndex((suggestion) => suggestion.id === item._source.id) == -1) //if not already added
+                    suggestions.push({
+                        score: item._score, //sending score as well in case the client wants to sort with it
+                        id: item._source.id,
+                        firstName: item._source.firstName,
+                        lastName: item._source.lastName,
+                        homeAddress: item._source.homeAddress,
+                        landlord: item._source.landlord
+                    });
+            });
             //console.log(suggestions)
             return suggestions;
 
@@ -340,37 +390,37 @@ export default class UsersSearchService implements OnModuleInit {
                     input: [user.lastName]
                 },
                 */
-            //}
+        //}
 
-            /**
-             * prepare the update script
-             */
-           /* const script = Object.entries(newBody).reduce((result, [key, value]) => {
-                return `${result} ctx._source.${key}='${value}';`;
-            }, '');
+        /**
+         * prepare the update script
+         */
+        /* const script = Object.entries(newBody).reduce((result, [key, value]) => {
+             return `${result} ctx._source.${key}='${value}';`;
+         }, '');
 
-            return this.elasticsearchService.updateByQuery({
-                index: this.index,
-                body: {
-                    query: {
-                        term: {
-                            id: user.id,
-                        }
-                    },
-                    script: {
-                        inline: script
-                    }
-                }
-            })
-        } catch (error) {
-            console.log(error)
-        }*/
-        try{ //alternative to above which seems not to work well with suggest index
+         return this.elasticsearchService.updateByQuery({
+             index: this.index,
+             body: {
+                 query: {
+                     term: {
+                         id: user.id,
+                     }
+                 },
+                 script: {
+                     inline: script
+                 }
+             }
+         })
+     } catch (error) {
+         console.log(error)
+     }*/
+        try { //alternative to above which seems not to work well with suggest index
             await this.remove(user.id) //remove
             await this.indexUser(user) //index again
-        }catch(error){
+        } catch (error) {
             console.log(error.message)
         }
     }
-    
+
 }
