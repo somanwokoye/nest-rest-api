@@ -413,9 +413,12 @@ export class TenantsService {
                     theme, rootFileSystem, logo, logoMimeType, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
                 });
 
+                //console.log(JSON.stringify(smtpAuth))
+
             }
 
         });
+        
         return properties;
     }
 
@@ -441,7 +444,7 @@ export class TenantsService {
             //use region name if no tenant specific property
             const redisClientName = prop.tenantConfigDetailRedisProperties == null ? regionName : regionName + "_" + prop.tenantUniquePrefix
 
-            //dycrypt password to pass to Redis
+            //decrypt password to pass to Redis
             const redisPassword = await CryptoTools.decrypt({ iv: prop.redisProperties.password.iv, content: prop.redisProperties.password.content });
             const redisClient = await this.getRedisClient(redisClientName, { ...prop.redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
 
@@ -461,6 +464,7 @@ export class TenantsService {
             console.log(prop.uniqueName);
             */
 
+            //console.log(JSON.stringify(prop))
             //Alternative way to call mset without first creating a Map
             await redisClient.mset({
 

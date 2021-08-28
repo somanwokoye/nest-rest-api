@@ -39,7 +39,7 @@ const App: React.FC<IState> = (props) => {//assuming that props passed will be i
   {
     tenants: props.tenants || [],
     tenantsCount: props.tenantsCount || 0,
-    tenant: props.tenant || null,
+    tenant: props.tenant || null ,
     onAddTenant: props.onAddTenant || false,
     onViewTenant: props.onViewTenant || false,
     onEditTenant: props.onEditTenant || false,

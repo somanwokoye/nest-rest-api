@@ -1,4 +1,5 @@
 import { IAction, IFindOptions } from "../global/app.interfaces";
+import { API_VERSION_URL } from "../global/app.settings";
 
 //function to fetch data
 //See https://github.com/typeorm/typeorm/blob/master/docs/find-options.md for find options
@@ -8,7 +9,7 @@ export const handleReadTenants = async (dispatch: React.Dispatch<IAction>, findO
       //Rather than use absolute URL, we are using relative below because we have made a proxy entry into package.json
       //i.e. "proxy": "http://localhost:3003". In this way, our code is more like how it will be at production deployment
       //when we serve both the client react application and the backend from the same domain.
-      const response = await fetch(`/v1/tenants?findOptions=${encodeURI(JSON.stringify(findOptions))}`);
+      const response = await fetch(`${API_VERSION_URL}/tenants?findOptions=${encodeURI(JSON.stringify(findOptions))}`);
 
       //const response = await fetch(`/v1/tenants`);
       

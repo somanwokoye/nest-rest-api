@@ -1,4 +1,5 @@
 import { IAction, ITenant } from "../global/app.interfaces";
+import { API_VERSION_URL } from "../global/app.settings";
 
 
 export const handleUpdateTenant = async (editedTenant: ITenant, dispatch: React.Dispatch<IAction>) => {
@@ -7,7 +8,7 @@ export const handleUpdateTenant = async (editedTenant: ITenant, dispatch: React.
     dispatch({ type: 'BeforeUpdateTenant' })
     //let's try to write to backend
     try {
-        const response = await fetch(`/v1/tenants`,
+        const response = await fetch(`${API_VERSION_URL}/tenants`,
             {
                 method: 'PUT',//notice the method
                 //mode: 'cors', // no-cors, *cors, same-origin

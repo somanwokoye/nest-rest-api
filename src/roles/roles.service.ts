@@ -6,13 +6,11 @@ import { DeleteResult, InsertResult, Repository, UpdateResult } from 'typeorm';
 import { CreateRoleDto } from './dto/create/create-role.dto';
 import { UpdateRoleDto } from './dto/update/update-role.dto';
 import { Role } from './models/role.entity';
-import { Request } from 'src/global/custom.interfaces';
 
 @Injectable()
 export class RolesService {
 
     constructor(
-        @InjectRepository(User) private userRepository: Repository<User>,
         @InjectRepository(Role) private roleRepository: Repository<Role>
     ) { }
 

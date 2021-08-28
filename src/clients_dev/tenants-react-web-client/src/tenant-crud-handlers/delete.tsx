@@ -1,10 +1,11 @@
 import { IAction } from "../global/app.interfaces";
+import { API_VERSION_URL } from "../global/app.settings";
 
 export const handleDeleteTenant = async (id: number | string, dispatch: React.Dispatch<IAction>) => {
     //You can optionally send an alert at the beginning of this function, in case it takes long to finish.
     dispatch({ type: 'BeforeDeleteTenant' });
     try {
-        const response = await fetch(`/v1/tenants/${id}`, //note this URL
+        const response = await fetch(`${API_VERSION_URL}/tenants/${id}`, //note this URL
             {
                 method: 'DELETE',
                 //mode: 'cors', // no-cors, *cors, same-origin

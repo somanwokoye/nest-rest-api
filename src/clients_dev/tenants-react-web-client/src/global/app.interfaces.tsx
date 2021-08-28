@@ -93,7 +93,7 @@ export interface ITenantTeam extends IBaseAbstract {
 }
 
 export interface ITenantAccountOfficer extends IBaseAbstract{ 
-    tenant?: ITenant
+    tenant?: ITenant | null
     user?: IUser
     roles?: TenantAccountOfficerRole[]
 }
@@ -404,13 +404,13 @@ export interface IRegion extends IBaseAbstract {
 export interface ITenant extends IBaseAbstract {
     uuid?: string;
     name?: string;
-    subDomainName?: string; 
+    subDomainName?: string | null; 
     address?: string;
     moreInfo?: string;
     logo?: string;
     logoMimeType?: string;
     status?: TenantStatus;
-    customURLSlug?: string
+    customURLSlug?: string | null
     dateOfRegistration?: Date
     active?: boolean;
     customTheme?: ICustomTheme;
@@ -432,7 +432,7 @@ export interface ITenant extends IBaseAbstract {
 export interface IState {
     tenants?: ITenant[];
     tenantsCount?: number; //for total number that corresponds to present find, in case of pagination
-    tenant?: ITenant; //This can be use for tenant to edit or tenant to view, depending on the function being carried out
+    tenant?: ITenant | null; //This can be use for tenant to edit or tenant to view, depending on the function being carried out
     onAddTenant: boolean;
     onViewTenant: boolean;
     onEditTenant: boolean;

@@ -1,4 +1,5 @@
 import { IAction, ITenant } from "../global/app.interfaces";
+import { API_VERSION_URL } from "../global/app.settings";
 
 //function that handles Create Tenant
 export const handleCreateTenant = async (tenantToCreate: ITenant, createPrimaryContact: boolean, dispatch: React.Dispatch<IAction>) => {
@@ -8,7 +9,7 @@ export const handleCreateTenant = async (tenantToCreate: ITenant, createPrimaryC
     try {
         //I have left a number of init options commented out rather than not have then at, so you can know about them
         //see https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch for info on these options
-        const response = await fetch(`/v1/tenants?createPrimaryContact=${createPrimaryContact}`,
+        const response = await fetch(`${API_VERSION_URL}/tenants?createPrimaryContact=${createPrimaryContact}`,
             {
                 method: 'POST',
                 //mode: 'cors', // no-cors, *cors, same-origin
