@@ -80,7 +80,7 @@ async function bootstrap() {
   */
 
   /* fastify-jwt */
-  app.register(jwt, { ...jwtDefaultOptions });
+  app.register(jwt as any, { ...jwtDefaultOptions });
   /**
    * Pius note: You can set global prefix for routes e.g. for versioning purpose
    */
@@ -105,7 +105,7 @@ async function bootstrap() {
     templates: join(__dirname, '..', 'views'),
   });
 
-  app.register(fastifySecureSession, {
+  app.register(fastifySecureSession as any, {
     cookieName: 'tmm-session-cookie',
     key: readFileSync(path.join(__dirname, '../', 'secret-key')),
     cookie: {
@@ -115,7 +115,7 @@ async function bootstrap() {
   });
 
   //register fastify-multipart
-  app.register(fmp);
+  app.register(fmp as any);
 
   //General limits may be passed or per request basis. E.g.
   /*
