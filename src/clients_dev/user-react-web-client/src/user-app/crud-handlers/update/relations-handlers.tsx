@@ -243,7 +243,7 @@ export class RelationsHandlers {
             //Response is ok. Proceed!
             //clear loading sign and fileToUpload. Set browser img src with date query to clear cache
             setState({ ...state, relations: { ...state.relations, photo: { ...state.relations.photo, src: `${state.relations.photo.src}?&${Date.now()}`, fileToUpload: '', uploadButtonState: '' } } })
-        } catch (error) {
+        } catch (error:any) {
             setState({ ...state, relations: { ...state.relations, photo: { ...state.relations.photo, alert: { show: true, type: 'danger', message: `photo upload failed: ${error.message}` } } } })
         }
     }

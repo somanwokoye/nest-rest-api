@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, Res
 import { renderToNodeStream } from 'react-dom/server';
 import App from '../clients_dev/tenants-react-web-client/src/App';
 import * as React from 'react';
-import { Request, Reply } from 'src/global/custom.interfaces';
+import { Request, Reply, TenantStatus } from 'src/global/custom.interfaces';
 import renderEngine from 'src/global/render.engine';
 import { UpdateResult } from 'typeorm/query-builder/result/UpdateResult';
 import { CreateTenantDto, CreateTenantDtos } from './dto/create/create-tenant.dto';
@@ -18,9 +18,9 @@ import { IState } from '../clients_dev/tenants-react-web-client/src/global/app.i
 import { CreateTenantTeamDto, CreateTenantTeamRolesDto } from './dto/create/create-tenant-team.dto';
 import { CreateTenantAccountOfficerDto } from './dto/create/create-account-officer.dto';
 import { ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { FileUploadDto } from 'src/global/file-upload.dto';
-import { API_VERSION } from 'src/global/app.settings';
-import { CreateTenantConfigDetailDto } from 'src/tenant-config-details/dto/create-tenant-config-detail.dto';
+import { FileUploadDto } from '../global/file-upload.dto';
+import { API_VERSION } from '../global/app.settings';
+import { CreateTenantConfigDetailDto } from '../tenant-config-details/dto/create-tenant-config-detail.dto';
 
 @ApiTags('tenants')
 @Controller('tenants')
@@ -37,6 +37,7 @@ export class TenantsController {
      * Create a new tenant
      * @param createTenantDto 
      * Handle Post request for create
+     * Indicate via query named createPrimaryContact whether primary contact should be created 
      */
     @Post()
     create(@Body() createTenantDto: CreateTenantDto, @Query() query: string, @Req() req: Request): Promise<Tenant> {
@@ -518,4 +519,14 @@ export class TenantsController {
         return this.tenantsService.getTenantLogo(+tenantId, reply);
     }
 
+    /**
+     * Set Tenant Status in Redis. Status must be 'active' | 'owing' | 'suspended'
+     * @param tenantId 
+     * @param status 
+     * @returns 
+     */
+    @Patch(':tenantId/status/:status')
+    async setTenantStatusInRedisByTenantId(@Param('tenantId') tenantId: string, @Param('status') status: TenantStatus){
+        return this.tenantsService.setTenantStatusInRedisByTenantId(+tenantId, status)
+    }
 }

@@ -21,7 +21,7 @@ import { Billing } from './modules/billings/models/billing.entity';
 import { CreateThemeDto } from './modules/themes/dto/create/create-theme.dto';
 import { Theme } from './modules/themes/models/theme.entity';
 import * as bcrypt from 'bcrypt';
-import { Request, Reply } from '../global/custom.interfaces';
+import { Request, Reply, TenantStatus } from '../global/custom.interfaces';
 //five imports below are for file upload handling
 import util from 'util'; //for uploaded file streaming to file
 import { pipeline } from 'stream';//also for uploaded file streaming to file
@@ -405,12 +405,18 @@ export class TenantsService {
                 const customURLSlug: string = tenant.customURLSlug;
                 const uniqueName: string = `${tenant.subDomainName}.${tenant.regionRootDomainName}`;
 
+                const name: string = tenant.name;
+                const moreInfo: string = tenant.moreInfo;
+                const address: string = tenant.address;
+                const status: TenantStatus = tenant.status;
+
                 const tenantConfigDetailRedisProperties = tenant.tenantConfigDetail.redisProperties; //this is just for test in setTenantProperties... below
 
                 properties.push({
                     dbProperties, redisProperties, smtpAuth, otherUserOptions, jwtConstants,
                     authEnabled, fbOauth2Constants, googleOidcConstants, sizeLimits, elasticSearchProperties,
-                    theme, rootFileSystem, logo, logoMimeType, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName
+                    theme, rootFileSystem, logo, logoMimeType, tenantConfigDetailRedisProperties, tenantUniquePrefix, customURLSlug, uniqueName,
+                    name, moreInfo, address, status
                 });
 
                 //console.log(JSON.stringify(smtpAuth))
@@ -556,8 +562,12 @@ export class TenantsService {
 
 
                 [`${prop.tenantUniquePrefix}Logo_FileName`]: prop.logo,
-                [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logoMimeType
+                [`${prop.tenantUniquePrefix}Logo_Mimetype`]: prop.logoMimeType,
 
+                [`${prop.tenantUniquePrefix}NAME`]: prop.name,
+                [`${prop.tenantUniquePrefix}MORE_INFO`]: prop.moreInfo,
+                [`${prop.tenantUniquePrefix}ADDRESS`]: prop.address,
+                [`${prop.tenantUniquePrefix}STATUS`]: prop.status
             });
 
             //if (prop.tenantConfigDetailRedisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
@@ -691,10 +701,57 @@ export class TenantsService {
             `${tenantUniquePrefix}Root_FileSystem_Password`,
 
             `${tenantUniquePrefix}Logo_FileName`,
-            `${tenantUniquePrefix}Logo_Mimetype`
+            `${tenantUniquePrefix}Logo_Mimetype`,
+            `${tenantUniquePrefix}NAME`,
+            `${tenantUniquePrefix}MORE_INFO`,
+            `${tenantUniquePrefix}ADDRESS`,
+            `${tenantUniquePrefix}STATUS`
         ]);
 
         //if (tenant.tenantConfigDetail.redisProperties != null) redisClient.disconnect(); //close if redis client was opened for just the tenant
+    }
+
+    /**
+     * To be used for enabling or disabling of tenant
+     * @param tenantId 
+     * @param status 
+     */
+    async setTenantStatusInRedisByTenantId(tenantId: number, status: TenantStatus){
+        if (status !== TenantStatus.A && status !== TenantStatus.O && status !== TenantStatus.S){
+            throw new HttpException({
+                status: HttpStatus.BAD_REQUEST,
+                error: `There was a problem with setting primary contact for tenant`,
+            }, HttpStatus.BAD_REQUEST);
+        }
+        //Get the tenant
+        const tenant = await this.tenantRepository.createQueryBuilder('tenant')
+            .where('tenant.id = :tenantId', { tenantId })
+            .getOne()
+
+        const tenantUniquePrefix: string = `_${tenant.uuid.replace(/-/g, '')}_`;
+
+        /*
+        Get the redis client for tenant
+         */
+        //use region name and properties if no tenant specific
+        const region = await this.regionsService.findRegionByName(tenant.regionName);
+        const redisClientName = tenant.tenantConfigDetail.redisProperties == null ? tenant.regionName : tenant.regionName + "_" + tenantUniquePrefix;
+        const redisProperties = tenant.tenantConfigDetail.redisProperties == null ? region.redisProperties : tenant.tenantConfigDetail.redisProperties;
+        
+        //dycrypt password to pass to Redis
+        const redisPassword = await CryptoTools.decrypt({ iv: redisProperties.password.iv, content: redisProperties.password.content });
+
+        let sentinels: { host: string, port: number }[] | null = null;
+        if (redisProperties.sentinels != undefined) {
+            sentinels = JSON.parse(redisProperties.sentinels)
+            //redisPropertiesMod = { ...redisProperties, sentinels }
+        }
+        const redisClient = await this.getRedisClient(redisClientName, { ...redisProperties, password: redisPassword, sentinels }); //replace sentinels with properly formatted one.
+
+
+        //finally, set the status
+        await redisClient.set(`${tenantUniquePrefix}STATUS`, status);
+
     }
 
     /**
@@ -730,11 +787,15 @@ export class TenantsService {
         const logo = tenant.logo;
         const logoMimeType = tenant.logoMimeType;
 
+        const name = tenant.name;
+        const moreInfo = tenant.moreInfo;
+        const address = tenant.address;
+        const status = tenant.status;
+
 
 
         //Get client connection to Redis
         //As sentinels in db was set as string, first convert to proper object format
-
         let sentinels: { host: string, port: number }[] | null = null;
         if (redisProperties.sentinels != undefined) {
             sentinels = JSON.parse(redisProperties.sentinels)
@@ -843,7 +904,12 @@ export class TenantsService {
             [`${tenantUniquePrefix}Root_FileSystem_Password_CRYPTO_IV`]: rootFileSystem.password ? rootFileSystem.password.iv : null,
 
             [`${tenantUniquePrefix}Logo_FileName`]: logo,
-            [`${tenantUniquePrefix}Logo_Mimetype`]: logoMimeType
+            [`${tenantUniquePrefix}Logo_Mimetype`]: logoMimeType,
+
+            [`${tenantUniquePrefix}NAME`]: name,
+            [`${tenantUniquePrefix}MORE_INFO`]: moreInfo,
+            [`${tenantUniquePrefix}ADDRESS`]: address,
+            [`${tenantUniquePrefix}STATUS`]: status
 
         });
 
@@ -1336,7 +1402,7 @@ export class TenantsService {
                     const newTenantConfigDetail = this.tenantConfigDetailRepository.create(createTenantConfigDetailDto);
 
                     //Get uuid, uniqueName and customURLSlug of tenant. For schema, writing to redis. Consider passing them as arguments
-                    const [uuid, subDomainName, customURLSlug, regionName, primaryContactFirstName, primaryContactLastName, primaryContactPrimaryEmailAddress, primaryContactGender, primaryContactDateOfBirth] = await this.getTenantUniqueIdentities(tenantId);
+                    const [uuid, subDomainName, customURLSlug, regionName, name, moreInfo, address, status, primaryContactFirstName, primaryContactLastName, primaryContactPrimaryEmailAddress, primaryContactGender, primaryContactDateOfBirth] = await this.getTenantUniqueIdentities(tenantId);
 
                     //Get the region from regionName
                     const region = await this.regionsService.findRegionByName(regionName);
@@ -1581,6 +1647,10 @@ export class TenantsService {
 
                         //[`${tenantUniquePrefix}Logo_FileName`]: logo ? logo.fileName : null,
                         //[`${tenantUniquePrefix}Logo_Mimetype`]: logo ? logo.mimeType : null
+                        [`${tenantUniquePrefix}NAME`]: name,
+                        [`${tenantUniquePrefix}MORE_INFO`]: moreInfo,
+                        [`${tenantUniquePrefix}ADDRESS`]: address,
+                        [`${tenantUniquePrefix}STATUS`]: status
 
                     });
 
@@ -1956,12 +2026,12 @@ export class TenantsService {
     /* Below are unique util functions */
     /**
      * Get redis client for the region. This is called when tenant config details are to be added to a region's redis.
-     * @param regionName 
-     * @param redisProperties 
+     * @param name
+     * @param redisProperties
      * @returns 
      */
     async getRedisClient(name: string, redisProperties: Redis.RedisOptions) {
-        let client: Redis.Redis = this.redisClients.get(name); //attempt to get client for exising connection
+        let client: Redis.Redis = this.redisClients.get(name); //attempt to get client for existing connection
 
         if (client == undefined) {
             try {
@@ -2028,12 +2098,12 @@ export class TenantsService {
     async getTenantUniqueIdentities(tenantId: number): Promise<string[]> {
         const tenant: Tenant = await this.tenantRepository.createQueryBuilder("tenant")
             .leftJoin("tenant.primaryContact", "primaryContact")
-            .select(["tenant.id", "tenant.uuid", "tenant.subDomainName", "tenant.customURLSlug", "tenant.regionName", "primaryContact.firstName", "primaryContact.lastName", "primaryContact.primaryEmailAddress", "primaryContact.gender", "primaryContact.dateOfBirth"])
+            .select(["tenant.id", "tenant.uuid", "tenant.subDomainName", "tenant.customURLSlug", "tenant.regionName", "tenant.name", "tenant.moreInfo", "tenant.address", "tenant.status", "primaryContact.firstName", "primaryContact.lastName", "primaryContact.primaryEmailAddress", "primaryContact.gender", "primaryContact.dateOfBirth"])
             .where("tenant.id = :tenantId", { tenantId })
             .getOne();
 
         //return [tenant.uuid, tenant.subDomainName, tenant.customURLSlug, tenant.regionName];
-        return [tenant.uuid, tenant.subDomainName, tenant.customURLSlug, tenant.regionName, tenant.primaryContact.firstName, tenant.primaryContact.lastName, tenant.primaryContact.primaryEmailAddress, tenant.primaryContact.gender, tenant.primaryContact.dateOfBirth.toLocaleDateString()];
+        return [tenant.uuid, tenant.subDomainName, tenant.customURLSlug, tenant.regionName, tenant.name, tenant.moreInfo, tenant.address, tenant.status, tenant.primaryContact.firstName, tenant.primaryContact.lastName, tenant.primaryContact.primaryEmailAddress, tenant.primaryContact.gender, tenant.primaryContact.dateOfBirth.toLocaleDateString()];
     }
 
     /* Not needed anymore, combined with getTenantUniqueIdentities

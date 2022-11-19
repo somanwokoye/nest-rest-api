@@ -28,7 +28,7 @@ export const handleCreateUser = async (userToCreate: IUser, currentUsers: IUser[
         //useReducer to dispatch successful user creation, sending userCreated as payload.
         //dispatch({ type: 'CreateUserSuccess', payload: { user: userCreated, actionButtonState: DEFAULT_ACTION_BUTTON_STATE } });
         dispatch({ type: 'CreateUserSuccess', payload: { user: userCreated, users: currentUsers, actionButtonState: DEFAULT_ACTION_BUTTON_STATE } });
-    } catch (error) {
+    } catch (error: any) {
         //dispatch error to state for display
         dispatch({ type: 'CreateUserFailure', payload: { error: error, actionButtonState: DEFAULT_ACTION_BUTTON_STATE } });
     }

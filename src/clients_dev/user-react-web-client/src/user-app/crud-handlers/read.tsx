@@ -16,7 +16,7 @@ export const handleReadUsers = async (dispatch: React.Dispatch<IAction>, findOpt
       const data = await response.json();
       //set in state  
       dispatch({type: 'FetchDataSuccess', payload: {usersCount: data[1], users: data[0]}})
-    } catch (error) {
+    } catch (error: any) {
       //set state
       dispatch({type: 'FetchDataFailure', payload: {error: error}})
     }
